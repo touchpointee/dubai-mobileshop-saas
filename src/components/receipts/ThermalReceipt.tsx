@@ -66,7 +66,7 @@ export function ThermalReceipt({
     documentTitle: `Invoice-${invoiceNumber}`,
     onAfterPrint: onPrintComplete,
     onPrintError: (_err, data) => {
-      if (typeof window !== "undefined" && window.console?.error) {
+      if (typeof window !== "undefined") {
         console.error("Print failed:", data);
       }
     },
