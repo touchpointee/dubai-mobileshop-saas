@@ -10,7 +10,7 @@ import { usePosStore } from "@/stores/pos-store";
 import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 import { ThermalReceipt } from "@/components/receipts/ThermalReceipt";
-import { downloadA4InvoicePdf } from "@/components/receipts/A4Invoice";
+import { printA4InvoicePdf } from "@/components/receipts/A4Invoice";
 import { Search, ShoppingCart, User, Percent, Package, Check, Minus, Plus } from "lucide-react";
 
 type Product = { _id: string; name: string; sellPrice: number; quantity: number; brand?: string; requiresImei?: boolean; imeiCount?: number; minSellPrice?: number };
@@ -64,6 +64,7 @@ export function POSScreen({
   const [paymentModalPreSelectId, setPaymentModalPreSelectId] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<LastSale | null>(null);
   const [imeiModal, setImeiModal] = useState<{ product: Product; imeis: ProductImei[] } | null>(null);
+  const [a4LanguageModalOpen, setA4LanguageModalOpen] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +103,8 @@ export function POSScreen({
   }, [search, products]);
 
   function handleAddProduct(p: Product) {
-    if (getAvailableQty(p) <= 0) return;
+    const inCartQty = items.filter((i) => i.productId === p._id).reduce((s, i) => s + i.quantity, 0);
+    if (getAvailableQty(p) - inCartQty <= 0) return;
     // Add to cart immediately (frontend state) so UI feels instant
     addItem({ productId: p._id, productName: p.name, quantity: 1, unitPrice: p.sellPrice, discount: 0, totalPrice: p.sellPrice });
     // Then check IMEI: if product requires IMEI selection, undo add and open modal
@@ -131,6 +133,7 @@ export function POSScreen({
     }
     addItem({ productId: product._id, productName: product.name, quantity: 1, unitPrice: product.sellPrice, discount: 0, totalPrice: product.sellPrice, imeiId: imei._id, imei: imei.imei });
     setImeiModal(null);
+    focusScannerInput();
   }
 
   async function handleBarcodeScan(code: string) {
@@ -214,19 +217,26 @@ export function POSScreen({
       setPaymentModal(false);
       setPaymentModalPreSelectId(null);
       fetchProducts();
+      focusScannerInput();
     } else {
       const data = await res.json().catch(() => ({}));
       alert(data.error || tErrors("errorCreatingSale"));
     }
   }
 
-  useEffect(() => {
-    barcodeInputRef.current?.focus();
+  const focusScannerInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus();
+    });
   }, []);
+
+  useEffect(() => {
+    focusScannerInput();
+  }, [focusScannerInput]);
 
   return (
     <div className="flex h-screen">
-      {/* Hidden input for barcode scanner - receives focus on load so scanner works immediately */}
+      {/* Hidden input for barcode scanner - auto-focused on open and after modals close so scanner works immediately */}
       <input
         ref={barcodeInputRef}
         type="text"
@@ -240,7 +250,7 @@ export function POSScreen({
             handleBarcodeScan(barcodeInput);
           }
         }}
-        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        className="absolute opacity-0 w-0 h-0 pointer-events-none left-0 top-0"
         tabIndex={0}
       />
       {/* Products panel */}
@@ -278,27 +288,31 @@ export function POSScreen({
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((p) => (
-              <button
-                key={p._id}
-                type="button"
-                onClick={() => handleAddProduct(p)}
-                disabled={getAvailableQty(p) <= 0}
-                className="group block min-h-[88px] rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-teal-200 hover:shadow-md active:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600">
-                  <Package size={22} />
-                </div>
-                <p className="truncate text-base font-medium text-slate-900">{p.name}</p>
-                {p.brand && <p className="truncate text-sm text-slate-400">{p.brand}</p>}
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className="text-base font-bold text-teal-600">{formatCurrency(p.sellPrice)}</span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getAvailableQty(p) <= 2 ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"}`}>
-                    {p.requiresImei ? `${getAvailableQty(p)} IMEI` : `${getAvailableQty(p)} left`}
-                  </span>
-                </div>
-              </button>
-            ))}
+            {filteredProducts.map((p) => {
+              const inCartQty = items.filter((i) => i.productId === p._id).reduce((s, i) => s + i.quantity, 0);
+              const availableQty = Math.max(0, getAvailableQty(p) - inCartQty);
+              return (
+                <button
+                  key={p._id}
+                  type="button"
+                  onClick={() => handleAddProduct(p)}
+                  disabled={availableQty <= 0}
+                  className="group block min-h-[88px] rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-teal-200 hover:shadow-md active:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600">
+                    <Package size={22} />
+                  </div>
+                  <p className="truncate text-base font-medium text-slate-900">{p.name}</p>
+                  {p.brand && <p className="truncate text-sm text-slate-400">{p.brand}</p>}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-base font-bold text-teal-600">{formatCurrency(p.sellPrice)}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${availableQty <= 2 ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"}`}>
+                      {p.requiresImei ? `${availableQty} IMEI` : `${availableQty} left`}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
           {filteredProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -430,24 +444,15 @@ export function POSScreen({
               </div>
             </div>
           )}
-          <Button
-            className="w-full mt-4 min-h-[52px] text-lg font-semibold rounded-xl"
-            size="touch"
-            onClick={() => items.length > 0 && setPaymentModal(true)}
-            disabled={items.length === 0}
-          >
-            <Check size={20} className="me-2" />
-            {t("completeSale")}
-          </Button>
         </div>
       </div>
 
       {/* Customer modal */}
-      <Modal open={customerModal} onClose={() => setCustomerModal(false)} title={tModals("selectCustomer")} size="md">
+      <Modal open={customerModal} onClose={() => { setCustomerModal(false); focusScannerInput(); }} title={tModals("selectCustomer")} size="md">
         <div className="max-h-56 overflow-y-auto border border-slate-100 rounded-xl mb-4">
-          <button type="button" className="w-full border-b border-slate-50 px-4 py-4 text-left text-base hover:bg-slate-50 rounded-t-xl" onClick={() => { setCustomer(null, "", ""); setCustomerModal(false); }}>{t("walkInCustomer")}</button>
+          <button type="button" className="w-full border-b border-slate-50 px-4 py-4 text-left text-base hover:bg-slate-50 rounded-t-xl" onClick={() => { setCustomer(null, "", ""); setCustomerModal(false); focusScannerInput(); }}>{t("walkInCustomer")}</button>
           {customers.map((c) => (
-            <button key={c._id} type="button" className="w-full border-b border-slate-50 px-4 py-4 text-left text-base hover:bg-slate-50 last:border-0" onClick={() => { setCustomer(c._id, c.name, c.phone ?? ""); setCustomerModal(false); }}>
+            <button key={c._id} type="button" className="w-full border-b border-slate-50 px-4 py-4 text-left text-base hover:bg-slate-50 last:border-0" onClick={() => { setCustomer(c._id, c.name, c.phone ?? ""); setCustomerModal(false); focusScannerInput(); }}>
               {c.name} {c.phone ? <span className="text-slate-400">— {c.phone}</span> : ""}
             </button>
           ))}
@@ -456,11 +461,11 @@ export function POSScreen({
           <div><Label className="text-sm">Name</Label><Input className="mt-1.5 h-11 text-base" value={customerName} onChange={(e) => setCustomer(usePosStore.getState().customerId, e.target.value, customerPhone)} placeholder="Customer name" /></div>
           <div><Label className="text-sm">Phone</Label><Input className="mt-1.5 h-11 text-base" value={customerPhone} onChange={(e) => setCustomer(usePosStore.getState().customerId, customerName, e.target.value)} placeholder="Phone" /></div>
         </div>
-        <Button className="mt-4 w-full min-h-[48px] text-base" size="touch" onClick={() => setCustomerModal(false)}>{tCommon("done")}</Button>
+        <Button className="mt-4 w-full min-h-[48px] text-base" size="touch" onClick={() => { setCustomerModal(false); focusScannerInput(); }}>{tCommon("done")}</Button>
       </Modal>
 
       {/* Discount modal */}
-      <Modal open={discountModal} onClose={() => setDiscountModal(false)} title={tModals("discount")} size="md">
+      <Modal open={discountModal} onClose={() => { setDiscountModal(false); focusScannerInput(); }} title={tModals("discount")} size="md">
         <div className="flex gap-3 mb-4">
           <Button variant={discountType === "PERCENTAGE" ? "default" : "outline"} size="touch" className="flex-1 min-h-[48px]" onClick={() => setDiscount("PERCENTAGE", discountValue || 0)}>%</Button>
           <Button variant={discountType === "FIXED" ? "default" : "outline"} size="touch" className="flex-1 min-h-[48px]" onClick={() => setDiscount("FIXED", discountValue || 0)}>AED</Button>
@@ -505,6 +510,7 @@ export function POSScreen({
               alert(tErrors("discountCapped"));
             }
             setDiscountModal(false);
+            focusScannerInput();
           }}
         >
           {tCommon("done")}
@@ -517,13 +523,13 @@ export function POSScreen({
           grandTotal={totals.grandTotal}
           paymentMethods={paymentMethods}
           initialPaymentMethodId={paymentModalPreSelectId}
-          onClose={() => { setPaymentModal(false); setPaymentModalPreSelectId(null); }}
+          onClose={() => { setPaymentModal(false); setPaymentModalPreSelectId(null); focusScannerInput(); }}
           onSubmit={submitPayment}
         />
       )}
 
       {/* IMEI modal */}
-      <Modal open={!!imeiModal} onClose={() => setImeiModal(null)} title={imeiModal ? tModals("selectImeiTitle", { name: imeiModal.product.name }) : ""} size="md">
+      <Modal open={!!imeiModal} onClose={() => { setImeiModal(null); focusScannerInput(); }} title={imeiModal ? tModals("selectImeiTitle", { name: imeiModal.product.name }) : ""} size="md">
         <div className="max-h-72 overflow-y-auto border border-slate-100 rounded-xl">
           {imeiModal?.imeis.filter((im) => im.status === "IN_STOCK").map((im) => {
             const inCart = items.some((i) => i.imeiId === im._id);
@@ -547,18 +553,28 @@ export function POSScreen({
       {lastSale && (() => {
         const s = lastSale;
         const shop = s.shop ?? { name: "Shop", address: "", phone: "", trnNumber: "" };
+        const a4Props = { shopName: shop.name ?? "Shop", shopAddress: shop.address, shopPhone: shop.phone, trnNumber: shop.trnNumber, invoiceNumber: s.invoiceNumber, saleDate: s.saleDate, customerName: s.customerName, customerPhone: s.customerPhone, items: s.items, subtotal: s.subtotal, discountAmount: s.discountAmount, vatRate: s.vatRate, vatAmount: s.vatAmount, grandTotal: s.grandTotal, paidAmount: s.paidAmount, changeAmount: s.changeAmount, payments: s.payments, channel: s.channel };
         return (
-          <div className="fixed bottom-4 end-4 z-40 animate-fade-in rounded-xl border border-teal-200 bg-white p-4 shadow-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-teal-600"><Check size={16} /></div>
-              <p className="font-semibold text-slate-900">{t("saleCompleted", { invoiceNumber: s.invoiceNumber })}</p>
+          <>
+            <div className="fixed bottom-4 end-4 z-40 animate-fade-in rounded-xl border border-teal-200 bg-white p-4 shadow-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-teal-600"><Check size={16} /></div>
+                <p className="font-semibold text-slate-900">{t("saleCompleted", { invoiceNumber: s.invoiceNumber })}</p>
+              </div>
+              <div className="flex gap-2">
+                <ThermalReceipt shopName={shop.name ?? "Shop"} shopAddress={shop.address} shopPhone={shop.phone} trnNumber={shop.trnNumber} invoiceNumber={s.invoiceNumber} saleDate={s.saleDate} customerName={s.customerName} customerPhone={s.customerPhone} items={s.items} subtotal={s.subtotal} discountAmount={s.discountAmount} vatRate={s.vatRate} vatAmount={s.vatAmount} grandTotal={s.grandTotal} paidAmount={s.paidAmount} changeAmount={s.changeAmount} payments={s.payments} channel={s.channel} onPrintComplete={() => {}} trigger={(onClick) => (<Button size="sm" variant="outline" onClick={onClick}>{t("receipt")}</Button>)} />
+                <Button size="sm" variant="outline" onClick={() => setA4LanguageModalOpen(true)}>{t("a4Invoice")}</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setLastSale(null); setA4LanguageModalOpen(false); }}>{tCommon("close")}</Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <ThermalReceipt shopName={shop.name ?? "Shop"} shopAddress={shop.address} shopPhone={shop.phone} trnNumber={shop.trnNumber} invoiceNumber={s.invoiceNumber} saleDate={s.saleDate} customerName={s.customerName} customerPhone={s.customerPhone} items={s.items} subtotal={s.subtotal} discountAmount={s.discountAmount} vatRate={s.vatRate} vatAmount={s.vatAmount} grandTotal={s.grandTotal} paidAmount={s.paidAmount} changeAmount={s.changeAmount} payments={s.payments} channel={s.channel} onPrintComplete={() => {}} trigger={(onClick) => (<Button size="sm" variant="outline" onClick={onClick}>{t("receipt")}</Button>)} />
-              <Button size="sm" variant="outline" onClick={() => { downloadA4InvoicePdf({ shopName: shop.name ?? "Shop", shopAddress: shop.address, shopPhone: shop.phone, trnNumber: shop.trnNumber, invoiceNumber: s.invoiceNumber, saleDate: s.saleDate, customerName: s.customerName, customerPhone: s.customerPhone, items: s.items, subtotal: s.subtotal, discountAmount: s.discountAmount, vatRate: s.vatRate, vatAmount: s.vatAmount, grandTotal: s.grandTotal, paidAmount: s.paidAmount, changeAmount: s.changeAmount, payments: s.payments, channel: s.channel }); }}>{t("a4Invoice")}</Button>
-              <Button size="sm" variant="ghost" onClick={() => setLastSale(null)}>{tCommon("close")}</Button>
-            </div>
-          </div>
+            <Modal open={a4LanguageModalOpen} onClose={() => setA4LanguageModalOpen(false)} title={t("printInvoice")} size="sm">
+              <p className="mb-4 text-sm text-slate-600">{t("printInvoice")} — {t("printInEnglish")} / {t("printInArabic")}</p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { printA4InvoicePdf(a4Props, { language: "en" }); setA4LanguageModalOpen(false); }}>{t("printInEnglish")}</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { printA4InvoicePdf(a4Props, { language: "ar" }); setA4LanguageModalOpen(false); }}>{t("printInArabic")}</Button>
+              </div>
+            </Modal>
+          </>
         );
       })()}
     </div>

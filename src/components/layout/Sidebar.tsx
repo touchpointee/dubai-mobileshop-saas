@@ -53,6 +53,16 @@ const NAV_BY_ROLE: Record<
     { href: "/staff/customers", labelKey: "nav.customers" },
     { href: "/staff/service", labelKey: "nav.service" },
   ],
+  VAT_SHOP_STAFF: [
+    { href: "/vat-shop-staff/pos", labelKey: "nav.pos" },
+    { href: "/vat-shop-staff/stock", labelKey: "nav.stock" },
+    { href: "/vat-shop-staff/service", labelKey: "nav.service" },
+  ],
+  NON_VAT_SHOP_STAFF: [
+    { href: "/non-vat-shop-staff/pos", labelKey: "nav.pos" },
+    { href: "/non-vat-shop-staff/stock", labelKey: "nav.stock" },
+    { href: "/non-vat-shop-staff/service", labelKey: "nav.service" },
+  ],
 };
 
 export function Sidebar({ role }: { role: Role }) {
@@ -94,7 +104,11 @@ export function Sidebar({ role }: { role: Role }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: `${window.location.origin}/${locale}/login` })}
+          onClick={async () => {
+            await signOut({ redirect: false });
+            const loginPath = locale === "en" ? "/login" : `/${locale}/login`;
+            window.location.href = `${window.location.origin}${loginPath}`;
+          }}
           className="w-full rounded px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100"
         >
           {t("common.logout")}

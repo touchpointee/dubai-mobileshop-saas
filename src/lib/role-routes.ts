@@ -6,4 +6,6 @@ export const ROLE_DEFAULT_PATH: Record<Role, string> = {
   VAT_STAFF: "/vat/pos",
   NON_VAT_STAFF: "/non-vat/pos",
   STAFF: "/staff/pos",
+  VAT_SHOP_STAFF: "/vat-shop-staff/pos",
+  NON_VAT_SHOP_STAFF: "/non-vat-shop-staff/pos",
 };

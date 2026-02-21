@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ThermalReceipt } from "@/components/receipts/ThermalReceipt";
-import { downloadA4InvoicePdf } from "@/components/receipts/A4Invoice";
+import { printA4InvoicePdf } from "@/components/receipts/A4Invoice";
 import type { Channel } from "@/lib/constants";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -63,6 +63,7 @@ export function SalesHistoryContent({
   const apiChannel = channel === "VAT" ? "VAT" : "NON_VAT";
   const { data: sales, isLoading } = useSWR<SaleListItem[]>(`/api/sales?channel=${apiChannel}`, fetcher);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [a4LanguageModalOpen, setA4LanguageModalOpen] = useState(false);
 
   const { data: fullSale, isLoading: loadingSale } = useSWR<FullSale | null>(
     selectedSaleId ? `/api/sales/${selectedSaleId}` : null,
@@ -75,6 +76,7 @@ export function SalesHistoryContent({
 
   const closeBill = useCallback(() => {
     setSelectedSaleId(null);
+    setA4LanguageModalOpen(false);
   }, []);
 
   if (isLoading) return <PageSkeleton />;
@@ -153,28 +155,7 @@ export function SalesHistoryContent({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    downloadA4InvoicePdf({
-                      shopName: shop.name,
-                      shopAddress: shop.address,
-                      shopPhone: shop.phone,
-                      trnNumber: shop.trnNumber,
-                      invoiceNumber: fullSale.invoiceNumber,
-                      saleDate: fullSale.saleDate,
-                      customerName: fullSale.customerName,
-                      customerPhone: fullSale.customerPhone,
-                      items: fullSale.items,
-                      subtotal: fullSale.subtotal,
-                      discountAmount: fullSale.discountAmount,
-                      vatRate: fullSale.vatRate,
-                      vatAmount: fullSale.vatAmount,
-                      grandTotal: fullSale.grandTotal,
-                      paidAmount: fullSale.paidAmount,
-                      changeAmount: fullSale.changeAmount,
-                      payments: fullSale.payments,
-                      channel: fullSale.channel,
-                    });
-                  }}
+                  onClick={() => setA4LanguageModalOpen(true)}
                 >
                   {t("a4Invoice")}
                 </Button>
@@ -188,6 +169,39 @@ export function SalesHistoryContent({
         {!loadingSale && selectedSaleId && !fullSale && (
           <p className="text-sm text-slate-500 py-4">Sale not found.</p>
         )}
+      </Modal>
+
+      <Modal open={a4LanguageModalOpen} onClose={() => setA4LanguageModalOpen(false)} title={t("printInvoice")} size="sm">
+        <p className="mb-4 text-sm text-slate-600">{t("printInvoice")} — {t("printInEnglish")} / {t("printInArabic")}</p>
+        {fullSale && (() => {
+          const shop = shopFromSale(fullSale);
+          const a4Props = {
+            shopName: shop.name,
+            shopAddress: shop.address,
+            shopPhone: shop.phone,
+            trnNumber: shop.trnNumber,
+            invoiceNumber: fullSale.invoiceNumber,
+            saleDate: fullSale.saleDate,
+            customerName: fullSale.customerName,
+            customerPhone: fullSale.customerPhone,
+            items: fullSale.items,
+            subtotal: fullSale.subtotal,
+            discountAmount: fullSale.discountAmount,
+            vatRate: fullSale.vatRate,
+            vatAmount: fullSale.vatAmount,
+            grandTotal: fullSale.grandTotal,
+            paidAmount: fullSale.paidAmount,
+            changeAmount: fullSale.changeAmount,
+            payments: fullSale.payments,
+            channel: fullSale.channel,
+          };
+          return (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => { printA4InvoicePdf(a4Props, { language: "en" }); setA4LanguageModalOpen(false); }}>{t("printInEnglish")}</Button>
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => { printA4InvoicePdf(a4Props, { language: "ar" }); setA4LanguageModalOpen(false); }}>{t("printInArabic")}</Button>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

@@ -7,13 +7,13 @@ import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
 import { ProductBatch } from "@/models/ProductBatch";
 import { Shop } from "@/models/Shop";
-import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
+import { getNextSequence, setCounterIfHigher, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
 
 function getChannelFromRole(role: string): Channel | null {
-  if (role === "VAT_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF") return "NON_VAT";
+  if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
+  if (role === "NON_VAT_STAFF" || role === "NON_VAT_SHOP_STAFF") return "NON_VAT";
   return null;
 }
 
@@ -152,17 +152,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const seq = await getNextSequence(
-    new mongoose.Types.ObjectId(shopId as string),
-    staffChannel === "VAT" ? COUNTER_KEYS.VAT_INVOICE : COUNTER_KEYS.NON_VAT_INVOICE
-  );
+  const counterKey = staffChannel === "VAT" ? COUNTER_KEYS.VAT_INVOICE : COUNTER_KEYS.NON_VAT_INVOICE;
+  const shopObjId = new mongoose.Types.ObjectId(shopId as string);
   const prefix = staffChannel === "VAT" ? "VAT" : "NV";
-  const invoiceNumber = formatInvoiceNumber(prefix, seq);
 
-  const sale = await Sale.create({
+  const salePayload = {
     shopId,
     channel: staffChannel,
-    invoiceNumber,
     customerId: customerId ? new mongoose.Types.ObjectId(customerId) : undefined,
     customerName: customerName?.trim(),
     customerPhone: customerPhone?.trim(),
@@ -178,10 +174,42 @@ export async function POST(request: NextRequest) {
     grandTotal,
     paidAmount,
     changeAmount: Math.max(0, paidAmount - grandTotal),
-    status: "COMPLETED",
+    status: "COMPLETED" as const,
     notes: notes?.trim(),
     soldBy: session!.user.id,
-  });
+  };
+
+  let sale: mongoose.Document | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const [maxResult] = await Sale.aggregate<{ maxNum: number }>()
+      .match({ shopId: shopObjId, channel: staffChannel })
+      .addFields({ num: { $toInt: { $arrayElemAt: [{ $split: ["$invoiceNumber", "-"] }, 1] } } })
+      .group({ _id: null, maxNum: { $max: "$num" } })
+      .exec();
+    const maxExistingSeq = maxResult?.maxNum ?? 0;
+
+    let seq = await getNextSequence(shopObjId, counterKey);
+    if (seq <= maxExistingSeq) {
+      seq = maxExistingSeq + 1;
+      await setCounterIfHigher(shopObjId, counterKey, seq);
+    }
+
+    const invoiceNumber = formatInvoiceNumber(prefix, seq);
+
+    try {
+      sale = await Sale.create({ ...salePayload, invoiceNumber });
+      break;
+    } catch (err: unknown) {
+      const isDup = err && typeof err === "object" && "code" in err && (err as { code?: number }).code === 11000
+        && "keyPattern" in err && (err as { keyPattern?: Record<string, unknown> }).keyPattern?.invoiceNumber;
+      if (attempt < 1 && isDup) {
+        await setCounterIfHigher(shopObjId, counterKey, seq);
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (!sale) throw new Error("Sale creation failed");
 
   for (const item of saleItems) {
     const product = await Product.findOne({ _id: item.productId, shopId });

@@ -30,7 +30,9 @@
     "OWNER": "Owner",
     "VAT_STAFF": "VAT Billing",
     "NON_VAT_STAFF": "Non-VAT Billing",
-    "STAFF": "Staff"
+    "STAFF": "Staff",
+    "VAT_SHOP_STAFF": "VAT Shop Staff",
+    "NON_VAT_SHOP_STAFF": "Non-VAT Shop Staff"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -145,6 +147,9 @@
     "saleCompleted": "Sale completed: {invoiceNumber}",
     "receipt": "Receipt",
     "a4Invoice": "A4 Invoice",
+    "printInvoice": "Print invoice",
+    "printInEnglish": "English",
+    "printInArabic": "Arabic",
     "alreadyInCart": "(already in cart)",
     "offer": "offer",
     "enterPrice": "Enter price",

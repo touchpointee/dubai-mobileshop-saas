@@ -15,6 +15,20 @@ export async function getNextSequence(
   return doc!.seq;
 }
 
+/** Set counter to at least `value` (so next getNextSequence is > value). Use to sync after existing data. */
+export async function setCounterIfHigher(
+  shopId: Types.ObjectId,
+  key: string,
+  value: number
+): Promise<void> {
+  await connectDB();
+  await Counter.findOneAndUpdate(
+    { shopId, key },
+    { $max: { seq: value } },
+    { upsert: true }
+  );
+}
+
 export function formatInvoiceNumber(prefix: string, seq: number): string {
   return `${prefix}-${String(seq).padStart(4, "0")}`;
 }

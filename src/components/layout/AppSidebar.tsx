@@ -177,6 +177,26 @@ const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       ],
     },
   ],
+  VAT_SHOP_STAFF: [
+    {
+      sectionKey: "nav.sectionMain",
+      items: [
+        { href: "/vat-shop-staff/pos", labelKey: "nav.pos", icon: <ShoppingCart size={ICON_SIZE} /> },
+        { href: "/vat-shop-staff/stock", labelKey: "nav.stock", icon: <Layers size={ICON_SIZE} /> },
+        { href: "/vat-shop-staff/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
+      ],
+    },
+  ],
+  NON_VAT_SHOP_STAFF: [
+    {
+      sectionKey: "nav.sectionMain",
+      items: [
+        { href: "/non-vat-shop-staff/pos", labelKey: "nav.pos", icon: <ShoppingCart size={ICON_SIZE} /> },
+        { href: "/non-vat-shop-staff/stock", labelKey: "nav.stock", icon: <Layers size={ICON_SIZE} /> },
+        { href: "/non-vat-shop-staff/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
+      ],
+    },
+  ],
 };
 
 export function AppSidebar({ role }: { role: Role }) {
@@ -185,7 +205,7 @@ export function AppSidebar({ role }: { role: Role }) {
   const locale = useLocale();
   const sections = NAV_BY_ROLE[role];
   const setNavigating = useNavigationStore((s) => s.setNavigating);
-  const roleLabelKey = `roleLabels.${role}` as "roleLabels.OWNER" | "roleLabels.VAT_STAFF" | "roleLabels.NON_VAT_STAFF" | "roleLabels.STAFF" | "roleLabels.SUPER_ADMIN";
+  const roleLabelKey = `roleLabels.${role}` as "roleLabels.OWNER" | "roleLabels.VAT_STAFF" | "roleLabels.NON_VAT_STAFF" | "roleLabels.STAFF" | "roleLabels.SUPER_ADMIN" | "roleLabels.VAT_SHOP_STAFF" | "roleLabels.NON_VAT_SHOP_STAFF";
 
   return (
     <aside className="flex h-full min-h-0 w-72 shrink-0 flex-col border-e border-slate-200 bg-white">
@@ -241,7 +261,11 @@ export function AppSidebar({ role }: { role: Role }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: `${window.location.origin}/${locale}/login` })}
+          onClick={async () => {
+            await signOut({ redirect: false });
+            const loginPath = locale === "en" ? "/login" : `/${locale}/login`;
+            window.location.href = `${window.location.origin}${loginPath}`;
+          }}
           className="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
         >
           <LogOut size={ICON_SIZE} className="flex-shrink-0" />

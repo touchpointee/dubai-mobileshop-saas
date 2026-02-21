@@ -419,11 +419,11 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         open={!!detailsPurchaseId}
         onClose={() => setDetailsPurchaseId(null)}
         title={detailsPurchase ? `Purchase — ${detailsPurchase.invoiceNumber}` : "Purchase details"}
-        size="lg"
+        size="2xl"
       >
         {detailsPurchase ? (
           <div className="space-y-4">
-            <div ref={purchasePrintRef} className="purchase-print-content">
+            <div ref={purchasePrintRef} className="purchase-print-content bg-white print:p-6 print:min-w-0">
               <h2 className="text-lg font-semibold text-slate-900">Purchase — {detailsPurchase.invoiceNumber}</h2>
               <p className="text-sm text-slate-500 mt-1">
                 Dealer: {typeof detailsPurchase.dealerId === "object" ? detailsPurchase.dealerId?.name : "—"} · Date: {formatDate(detailsPurchase.purchaseDate)} · Total: {formatCurrency(detailsPurchase.grandTotal)}
@@ -431,8 +431,8 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                   <> · VAT ({detailsPurchase.vatRate}%): {formatCurrency(detailsPurchase.vatAmount ?? 0)}</>
                 )}
               </p>
-            <div className="overflow-x-auto rounded-xl border border-slate-200 mt-3">
-              <table className="w-full text-sm">
+            <div className="overflow-visible rounded-xl border border-slate-200 mt-3">
+              <table className="w-full text-sm table-fixed print:table-auto">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
                     <th className="w-10 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">#</th>

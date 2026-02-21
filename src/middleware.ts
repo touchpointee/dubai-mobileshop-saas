@@ -23,6 +23,8 @@ const SHOP_ROLE_PATHS: Record<string, string[]> = {
   VAT_STAFF: ["/vat"],
   NON_VAT_STAFF: ["/non-vat"],
   STAFF: ["/staff"],
+  VAT_SHOP_STAFF: ["/vat-shop-staff/pos", "/vat-shop-staff/stock", "/vat-shop-staff/service"],
+  NON_VAT_SHOP_STAFF: ["/non-vat-shop-staff/pos", "/non-vat-shop-staff/stock", "/non-vat-shop-staff/service"],
 };
 
 function getDefaultRedirect(role: Role): string {
@@ -32,6 +34,8 @@ function getDefaultRedirect(role: Role): string {
     case "VAT_STAFF": return "/vat/pos";
     case "NON_VAT_STAFF": return "/non-vat/pos";
     case "STAFF": return "/staff/pos";
+    case "VAT_SHOP_STAFF": return "/vat-shop-staff/pos";
+    case "NON_VAT_SHOP_STAFF": return "/non-vat-shop-staff/pos";
     default: return "/login";
   }
 }

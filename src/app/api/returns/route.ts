@@ -11,8 +11,8 @@ import { COUNTER_KEYS } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
 
 function getChannelFromRole(role: string): Channel | null {
-  if (role === "VAT_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF") return "NON_VAT";
+  if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
+  if (role === "NON_VAT_STAFF" || role === "NON_VAT_SHOP_STAFF") return "NON_VAT";
   return null;
 }
 

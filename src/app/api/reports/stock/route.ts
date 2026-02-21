@@ -58,12 +58,25 @@ export async function GET(request: NextRequest) {
     totalValue += (p.costPrice ?? 0) * qty;
   }
 
+  const role = session.user.role;
+  const isShopStaff = role === "VAT_SHOP_STAFF" || role === "NON_VAT_SHOP_STAFF";
+
+  let payloadProducts = products;
+  if (isShopStaff) {
+    payloadProducts = products.map((p) => {
+      const { costPrice, sellPrice, ...rest } = p;
+      return rest;
+    }) as (StockRow & { _id: { toString(): string } })[];
+  }
+
+  const summary: { totalProducts: number; totalQuantity: number; totalValue?: number } = {
+    totalProducts: products.length,
+    totalQuantity,
+  };
+  if (!isShopStaff) summary.totalValue = totalValue;
+
   return Response.json({
-    products,
-    summary: {
-      totalProducts: products.length,
-      totalQuantity,
-      totalValue,
-    },
+    products: payloadProducts,
+    summary,
   });
 }

@@ -20,6 +20,11 @@ export async function GET(
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
 
+  const role = session!.user.role;
+  if (role === "VAT_SHOP_STAFF" || role === "NON_VAT_SHOP_STAFF") {
+    return Response.json({ error: "Access denied" }, { status: 403 });
+  }
+
   const { productId } = await params;
   if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
     return Response.json({ error: "Invalid product ID" }, { status: 400 });
@@ -32,7 +37,6 @@ export async function GET(
     return Response.json({ error: "Product not found" }, { status: 404 });
   }
 
-  const role = session!.user.role;
   const productChannel = (product as { channel?: string }).channel;
   if (role === "VAT_STAFF" && productChannel !== "VAT") {
     return Response.json({ error: "Access denied to this product" }, { status: 403 });

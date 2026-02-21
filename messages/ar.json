@@ -30,7 +30,9 @@
     "OWNER": "المالك",
     "VAT_STAFF": "الفواتير الضريبية",
     "NON_VAT_STAFF": "الفواتير غير الضريبية",
-    "STAFF": "الموظف"
+    "STAFF": "الموظف",
+    "VAT_SHOP_STAFF": "موظف المتجر الضريبي",
+    "NON_VAT_SHOP_STAFF": "موظف المتجر غير الضريبي"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -144,6 +146,9 @@
     "saleCompleted": "تم البيع: {invoiceNumber}",
     "receipt": "إيصال",
     "a4Invoice": "فاتورة A4",
+    "printInvoice": "طباعة الفاتورة",
+    "printInEnglish": "English",
+    "printInArabic": "العربية",
     "alreadyInCart": "(في السلة بالفعل)",
     "offer": "عرض",
     "enterPrice": "أدخل السعر",
