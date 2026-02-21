@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { Plus, Pencil, Trash2, Banknote } from "lucide-react";
@@ -30,6 +32,8 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 const emptyForm = { name: "", phone: "", email: "", company: "", address: "", trnNumber: "" };
 
 export function DealersPageContent() {
+  const pathname = usePathname();
+  const basePath = pathname?.replace(/\/dealers$/, "") ?? "";
   const t = useTranslations("pages");
   const tForms = useTranslations("forms");
   const tModals = useTranslations("modals");
@@ -133,7 +137,18 @@ export function DealersPageContent() {
   if (isLoading) return <PageSkeleton />;
 
   const columns = [
-    { key: "name", header: tForms("name") },
+    {
+      key: "name",
+      header: tForms("name"),
+      render: (d: Dealer) => (
+        <Link
+          href={`${basePath}/dealers/${d._id}`}
+          className="font-medium text-primary hover:underline"
+        >
+          {d.name}
+        </Link>
+      ),
+    },
     {
       key: "phone",
       header: tForms("phone"),

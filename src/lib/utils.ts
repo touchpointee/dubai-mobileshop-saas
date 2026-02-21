@@ -18,6 +18,13 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
+export function formatDateTime(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-AE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(date));
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

@@ -22,33 +22,31 @@ export async function GET(request: NextRequest) {
     match.saleDate = dateRange;
   }
 
-  const [summary, list] = await Promise.all([
-    Sale.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalVatable: { $sum: "$vatableAmount" },
-          totalVat: { $sum: "$vatAmount" },
-          totalSales: { $sum: "$grandTotal" },
-          count: { $sum: 1 },
-        },
-      },
-    ]),
-    Sale.find(match)
-      .select("invoiceNumber saleDate vatableAmount vatAmount grandTotal")
-      .sort({ saleDate: -1 })
-      .limit(300)
-      .lean(),
-  ]);
+  const list = await Sale.find(match)
+    .select("invoiceNumber saleDate vatableAmount vatAmount grandTotal")
+    .sort({ saleDate: -1 })
+    .limit(300)
+    .lean();
+
+  type SaleRow = { _id: unknown; invoiceNumber: string; saleDate: Date; vatableAmount: number; vatAmount: number; grandTotal: number };
+  const rows = (list as unknown as SaleRow[]).map((s) => ({
+    _id: s._id,
+    invoiceNumber: s.invoiceNumber,
+    date: s.saleDate,
+    vatableAmount: (s.grandTotal ?? 0) - (s.vatAmount ?? 0),
+    vatAmount: s.vatAmount ?? 0,
+    total: s.grandTotal ?? 0,
+  }));
+
+  const totalVatable = rows.reduce((sum, r) => sum + r.vatableAmount, 0);
+  const totalVat = rows.reduce((sum, r) => sum + r.vatAmount, 0);
+  const totalSales = rows.reduce((sum, r) => sum + r.total, 0);
 
   return Response.json({
-    summary: {
-      totalVatable: summary[0]?.totalVatable ?? 0,
-      totalVat: summary[0]?.totalVat ?? 0,
-      totalSales: summary[0]?.totalSales ?? 0,
-      count: summary[0]?.count ?? 0,
-    },
-    list,
+    rows,
+    totalVatable,
+    totalVat,
+    totalSales,
+    invoiceCount: rows.length,
   });
 }

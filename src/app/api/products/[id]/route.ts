@@ -31,7 +31,7 @@ export async function PUT(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive, barcode } = body;
   await connectDB();
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
@@ -58,6 +58,9 @@ export async function PUT(
   if (typeof requiresImei === "boolean") product.requiresImei = requiresImei;
   if (typeof trackByBatch === "boolean") product.trackByBatch = trackByBatch;
   if (typeof isActive === "boolean") product.isActive = isActive;
+  if (Object.prototype.hasOwnProperty.call(body, "barcode")) {
+    product.barcode = barcode != null && typeof barcode === "string" && barcode.trim() ? barcode.trim() : undefined;
+  }
   await product.save();
   return Response.json(product);
 }

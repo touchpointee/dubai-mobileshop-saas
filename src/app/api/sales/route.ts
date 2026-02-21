@@ -131,9 +131,11 @@ export async function POST(request: NextRequest) {
     }
   }
   const afterDiscount = subtotal - discountAmount;
-  const vatableAmount = staffChannel === "VAT" ? afterDiscount : 0;
-  const vatAmount = (vatableAmount * vatRate) / 100;
-  const grandTotal = afterDiscount + vatAmount;
+  // VAT-inclusive pricing: price already includes VAT, so grandTotal = afterDiscount
+  // Extract VAT from the total using: vatAmount = total * vatRate / (100 + vatRate)
+  const grandTotal = afterDiscount;
+  const vatableAmount = staffChannel === "VAT" ? grandTotal : 0;
+  const vatAmount = vatRate > 0 ? (vatableAmount * vatRate) / (100 + vatRate) : 0;
 
   let paidAmount = 0;
   const PaymentMethodModel = (await import("@/models/PaymentMethod")).PaymentMethod;
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
     if (product?.trackByBatch) {
       let remaining = item.quantity;
       const batches = await ProductBatch.find(
-        { productId: item.productId, shopId, channel: staffChannel, quantity: { $gt: 0 } }
+        { productId: item.productId, shopId, quantity: { $gt: 0 } }
       ).sort({ createdAt: 1 });
       for (const batch of batches) {
         if (remaining <= 0) break;

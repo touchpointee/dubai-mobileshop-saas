@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
-import { ArrowLeft, FileText, Plus } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import { ArrowLeft, FileText, Plus, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SERVICE_JOB_STATUSES } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
 
@@ -39,9 +40,60 @@ type ServiceInvoice = {
   createdAt: string;
 };
 
+type ServiceJobLogEntry = {
+  _id: string;
+  type: string;
+  description: string;
+  fromValue?: string;
+  toValue?: string;
+  note?: string;
+  createdAt: string;
+  userId?: string;
+};
+
 type Product = { _id: string; name: string; sellPrice: number; quantity: number; channel: string };
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+function ServiceInvoiceRow({ invoice, jobRef }: { invoice: ServiceInvoice; jobRef: string }) {
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Service-Invoice-${invoice.invoiceNumber}`,
+  });
+  return (
+    <li className="py-2 flex items-center justify-between gap-2 text-sm">
+      {/* Printable content: off-screen on screen, printed via react-to-print */}
+      <div ref={printRef} className="absolute left-[-9999px] w-[210mm] p-4 bg-white text-slate-900">
+        <h3 className="font-semibold text-slate-900">Service invoice — {invoice.invoiceNumber}</h3>
+        <p className="text-xs text-slate-500">Job: {jobRef}</p>
+        <p className="text-sm mt-1">Labour: {formatCurrency(invoice.labourAmount)}</p>
+        {invoice.items && invoice.items.length > 0 && (
+          <table className="w-full text-sm mt-2 border border-slate-200 rounded">
+            <thead className="bg-slate-50"><tr><th className="text-left px-2 py-1">Part</th><th className="text-right px-2 py-1">Qty</th><th className="text-right px-2 py-1">Price</th><th className="text-right px-2 py-1">Total</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {invoice.items.map((item, i) => (
+                <tr key={i}>
+                  <td className="px-2 py-1">{item.productName}</td>
+                  <td className="px-2 py-1 text-right">{item.quantity}</td>
+                  <td className="px-2 py-1 text-right">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-2 py-1 text-right">{formatCurrency(item.quantity * item.unitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p className="text-sm font-semibold mt-2">Total: {formatCurrency(invoice.total)}</p>
+      </div>
+      <span>{invoice.invoiceNumber}</span>
+      <span className="font-medium">{formatCurrency(invoice.total)}</span>
+      <Button variant="ghost" size="sm" className="shrink-0" onClick={() => handlePrint()}>
+        <Printer size={14} className="mr-1" />
+        Print
+      </Button>
+    </li>
+  );
+}
 
 export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: string }) {
   const pathname = usePathname();
@@ -49,6 +101,10 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
   const { data: job, isLoading, mutate: mutateJob } = useSWR<ServiceJob>(jobId ? `/api/service-jobs/${jobId}` : null, fetcher);
   const { data: invoices } = useSWR<ServiceInvoice[]>(
     jobId ? `/api/service-invoices?serviceJobId=${jobId}` : null,
+    fetcher
+  );
+  const { data: logs = [] } = useSWR<ServiceJobLogEntry[]>(
+    jobId ? `/api/service-jobs/${jobId}/logs` : null,
     fetcher
   );
   const { data: productsVat } = useSWR<Product[]>("/api/products?channel=VAT", fetcher);
@@ -71,7 +127,10 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
-      if (res.ok) mutateJob();
+      if (res.ok) {
+        mutateJob();
+        globalMutate(`/api/service-jobs/${jobId}/logs`);
+      }
     } finally {
       setSaving(false);
     }
@@ -197,6 +256,28 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">History</h3>
+          {logs.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {logs.map((log) => (
+                <li key={log._id} className="flex flex-col gap-0.5 border-l-2 border-slate-200 pl-3 py-1">
+                  <span className="text-slate-500 font-mono text-xs">{formatDateTime(log.createdAt)}</span>
+                  <span className="font-medium text-slate-900">{log.description}</span>
+                  {(log.fromValue != null || log.toValue != null) && (
+                    <span className="text-slate-600">
+                      {log.fromValue != null ? log.fromValue : "—"} → {log.toValue != null ? log.toValue : "—"}
+                    </span>
+                  )}
+                  {log.note && <span className="text-slate-500 italic">{log.note}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">No activity yet.</p>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-700">Bills</h3>
             <Button size="sm" onClick={() => setBillModalOpen(true)}>
@@ -207,10 +288,7 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
           {invoices && invoices.length > 0 ? (
             <ul className="divide-y divide-slate-100">
               {invoices.map((inv) => (
-                <li key={inv._id} className="py-2 flex justify-between text-sm">
-                  <span>{inv.invoiceNumber}</span>
-                  <span className="font-medium">{formatCurrency(inv.total)}</span>
-                </li>
+                <ServiceInvoiceRow key={inv._id} invoice={inv} jobRef={job.deviceDescription} />
               ))}
             </ul>
           ) : (

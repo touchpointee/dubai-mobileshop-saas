@@ -51,4 +51,20 @@
     50% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
   }
+
+  /* Print: hide nav/sidebar and non-print elements */
+  @media print {
+    .no-print,
+    nav,
+    aside,
+    [data-sidebar],
+    header button,
+    .print\\:hidden {
+      display: none !important;
+    }
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
 }

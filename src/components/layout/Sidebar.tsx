@@ -94,7 +94,7 @@ export function Sidebar({ role }: { role: Role }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ callbackUrl: `${window.location.origin}/${locale}/login` })}
           className="w-full rounded px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100"
         >
           {t("common.logout")}

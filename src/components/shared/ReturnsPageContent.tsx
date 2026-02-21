@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import useSWR, { mutate } from "swr";
-import { Search, ArrowLeft, RotateCcw } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import { Search, ArrowLeft, RotateCcw, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
@@ -38,10 +39,11 @@ type Sale = {
 type ReturnDoc = {
   _id: string;
   returnNumber: string;
-  saleId: { invoiceNumber: string };
+  saleId: { invoiceNumber: string } | string;
   totalAmount: number;
   returnDate: string;
   status: string;
+  items?: { productName: string; quantity: number; totalPrice: number }[];
 };
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -61,6 +63,12 @@ export function ReturnsPageContent({ channel }: { channel: Channel }) {
   const [reason, setReason] = useState("");
   const [refundMethod, setRefundMethod] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [createdReturn, setCreatedReturn] = useState<ReturnDoc | null>(null);
+  const returnSlipPrintRef = useRef<HTMLDivElement>(null);
+  const handlePrintReturnSlip = useReactToPrint({
+    contentRef: returnSlipPrintRef,
+    documentTitle: createdReturn ? `Return-${createdReturn.returnNumber}` : "Return slip",
+  });
 
   async function searchSales() {
     if (!invoiceSearch.trim()) return;
@@ -157,7 +165,8 @@ export function ReturnsPageContent({ channel }: { channel: Channel }) {
         }),
       });
       if (res.ok) {
-        resetFlow();
+        const created = await res.json();
+        setCreatedReturn(created);
         mutate(returnsKey);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -176,6 +185,7 @@ export function ReturnsPageContent({ channel }: { channel: Channel }) {
     setShowAllSales(false);
     setReason("");
     setRefundMethod("");
+    setCreatedReturn(null);
   }
 
   if (isLoading) return <PageSkeleton />;
@@ -356,6 +366,51 @@ export function ReturnsPageContent({ channel }: { channel: Channel }) {
                 {submitting ? "Processing…" : "Process Return"}
               </Button>
               <Button variant="outline" onClick={() => setStep("select")}>Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Success: Print return slip */}
+        {createdReturn && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
+            <div ref={returnSlipPrintRef} className="return-slip-print-content">
+              <h3 className="text-base font-semibold text-slate-900">Return slip — {createdReturn.returnNumber}</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Original sale: {typeof createdReturn.saleId === "object" ? createdReturn.saleId?.invoiceNumber : "—"} · Date: {formatDate(createdReturn.returnDate)} · Refund: {formatCurrency(createdReturn.totalAmount)}
+              </p>
+              {createdReturn.items && createdReturn.items.length > 0 && (
+                <table className="w-full text-sm mt-3 border border-slate-200 rounded-lg overflow-hidden">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left px-3 py-2">Product</th>
+                      <th className="text-right px-3 py-2">Qty</th>
+                      <th className="text-right px-3 py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {createdReturn.items.map((item, i) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2">{item.productName}</td>
+                        <td className="px-3 py-2 text-right">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right">{formatCurrency(item.totalPrice)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t border-slate-200 bg-slate-50">
+                    <tr>
+                      <td colSpan={2} className="px-3 py-2 text-right font-semibold">Refund total</td>
+                      <td className="px-3 py-2 text-right font-semibold">{formatCurrency(createdReturn.totalAmount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-4 no-print">
+              <Button size="sm" onClick={() => handlePrintReturnSlip()}>
+                <Printer size={14} className="mr-1.5" />
+                Print return slip
+              </Button>
+              <Button variant="outline" size="sm" onClick={resetFlow}>Done</Button>
             </div>
           </div>
         )}

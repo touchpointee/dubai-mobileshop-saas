@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
-import { Plus, FileText, Barcode, Layers } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import { Plus, FileText, Barcode, Layers, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -75,11 +76,15 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [saving, setSaving] = useState(false);
   const [detailsPurchaseId, setDetailsPurchaseId] = useState<string | null>(null);
   const imeiInputRefs = useRef<(HTMLInputElement | null)[][]>([]);
-
+  const purchasePrintRef = useRef<HTMLDivElement>(null);
   const { data: detailsPurchase } = useSWR<Purchase | null>(
     detailsPurchaseId ? `/api/purchases/${detailsPurchaseId}` : null,
     fetcher
   );
+  const handlePrintPurchase = useReactToPrint({
+    contentRef: purchasePrintRef,
+    documentTitle: detailsPurchase ? `Purchase-${detailsPurchase.invoiceNumber}` : "Purchase",
+  });
 
   function openForm() {
     setDealerId("");
@@ -246,10 +251,12 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
       >
         {detailsPurchase ? (
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">
-              Dealer: {typeof detailsPurchase.dealerId === "object" ? detailsPurchase.dealerId?.name : "—"} · {formatDate(detailsPurchase.purchaseDate)} · {formatCurrency(detailsPurchase.grandTotal)}
-            </p>
-            <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div ref={purchasePrintRef} className="purchase-print-content">
+              <h2 className="text-lg font-semibold text-slate-900">Purchase — {detailsPurchase.invoiceNumber}</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Dealer: {typeof detailsPurchase.dealerId === "object" ? detailsPurchase.dealerId?.name : "—"} · Date: {formatDate(detailsPurchase.purchaseDate)} · Total: {formatCurrency(detailsPurchase.grandTotal)}
+              </p>
+            <div className="overflow-hidden rounded-xl border border-slate-200 mt-3">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -293,7 +300,12 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end">
+            </div>
+            <div className="flex justify-end gap-2 no-print">
+              <Button variant="outline" size="sm" onClick={() => handlePrintPurchase()}>
+                <Printer size={14} className="mr-1" />
+                Print
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setDetailsPurchaseId(null)}>Close</Button>
             </div>
           </div>

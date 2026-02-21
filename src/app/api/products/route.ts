@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const role = session!.user.role;
+
   await connectDB();
-  // Product list is shared between VAT and NON_VAT; stock/purchases remain per channel
+  // Shared product list - VAT and Non-VAT see same catalog
   const list = await Product.find({ shopId, isActive: true })
     .populate("dealerId", "name phone")
     .sort({ createdAt: -1 })
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT or Non-VAT staff can add products" }, { status: 403 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode } = body;
   if (!name || typeof name !== "string" || !name.trim()) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
@@ -66,15 +67,16 @@ export async function POST(request: NextRequest) {
   }
   await connectDB();
   const productId = new mongoose.Types.ObjectId().toString();
+  const requiresImeiVal = requiresImei === true;
   const productData: Record<string, unknown> = {
     id: productId,
     shopId: new mongoose.Types.ObjectId(shopId),
-    channel: staffChannel,
+    channel: "VAT",
     name: name.trim(),
     costPrice: Number(costPrice),
     sellPrice: Number(sellPrice),
     quantity: 0,
-    requiresImei: requiresImei === true,
+    requiresImei: requiresImeiVal,
     trackByBatch: trackByBatch === true,
     isActive: true,
     createdAt: new Date(),
@@ -87,6 +89,11 @@ export async function POST(request: NextRequest) {
   if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) productData.categoryId = new mongoose.Types.ObjectId(categoryId);
   if (dealerId && mongoose.Types.ObjectId.isValid(dealerId)) productData.dealerId = new mongoose.Types.ObjectId(dealerId);
   if (minSell != null) productData.minSellPrice = minSell;
+  if (barcode != null && typeof barcode === "string" && barcode.trim()) {
+    productData.barcode = barcode.trim();
+  } else if (!requiresImeiVal) {
+    productData.barcode = `BC-${productId}`;
+  }
   
   // Use collection.insertOne directly to ensure id is included (bypasses Mongoose schema issues)
   const db = mongoose.connection.db;

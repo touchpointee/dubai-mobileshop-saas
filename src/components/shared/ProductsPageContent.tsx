@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Barcode, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
+import { BarcodeLabel } from "@/components/barcode/BarcodeLabel";
 
 type Product = {
   _id: string;
@@ -31,6 +32,7 @@ type Product = {
   requiresImei?: boolean;
   imeiCount?: number;
   trackByBatch?: boolean;
+  barcode?: string;
 };
 
 type ProductCategory = { _id: string; name: string; nameAr?: string; sortOrder: number };
@@ -50,6 +52,7 @@ const emptyForm = {
   sellPrice: "",
   minSellPrice: "",
   requiresImei: false,
+  barcode: "",
 };
 
 function QtyBadge({ qty }: { qty: number }) {
@@ -81,10 +84,12 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [generatingBarcode, setGeneratingBarcode] = useState(false);
+  const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
 
   function openAdd() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
     setModalOpen(true);
   }
 
@@ -103,6 +108,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       sellPrice: String(p.sellPrice),
       minSellPrice: p.minSellPrice != null && p.minSellPrice > 0 ? String(p.minSellPrice) : "",
       requiresImei: Boolean(p.requiresImei),
+      barcode: p.barcode ?? "",
     });
     setModalOpen(true);
   }
@@ -130,6 +136,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         minSellPrice: minSellPriceVal,
         requiresImei: Boolean(form.requiresImei),
         trackByBatch: true,
+        barcode: form.barcode?.trim() || undefined,
       };
       const res = await fetch(url, {
         method,
@@ -152,6 +159,24 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
     if (!confirm(tErrors("deleteProductConfirm"))) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (res.ok) mutate(swrKey);
+  }
+
+  async function handleGenerateBarcode() {
+    if (!editing) return;
+    if (editing.requiresImei) return;
+    setGeneratingBarcode(true);
+    try {
+      const res = await fetch(`/api/products/${editing._id}/generate-barcode`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.barcode) {
+        setForm((f) => ({ ...f, barcode: data.barcode }));
+        mutate(swrKey);
+      } else {
+        alert(data.error || tErrors("errorSavingProduct"));
+      }
+    } finally {
+      setGeneratingBarcode(false);
+    }
   }
 
   if (isLoading) return <PageSkeleton />;
@@ -201,13 +226,23 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
     {
       key: "actions",
       header: t("actions"),
-      className: "w-40",
+      className: "w-48",
       render: (p: Product) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+          <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title={tModals("editProduct")}>
             <Pencil size={15} />
           </Button>
-          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p._id)}>
+          {(p.barcode || (!p.requiresImei && p._id)) ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              title={t("printBarcode")}
+              onClick={() => setPrintBarcodeProduct(p)}
+            >
+              <Printer size={15} />
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p._id)} title={tCommon("delete")}>
             <Trash2 size={15} />
           </Button>
         </div>
@@ -298,12 +333,62 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
               />
               <Label htmlFor="pr-requiresImei" className="font-normal">{t("requireImei")}</Label>
             </div>
+            {form.requiresImei ? (
+              <div className="sm:col-span-2 text-sm text-slate-500">
+                {t("imeiIsBarcode")}
+              </div>
+            ) : (
+              <>
+                <div className="sm:col-span-2 flex flex-col gap-1.5">
+                  <Label htmlFor="pr-barcode">{t("barcode")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pr-barcode"
+                      className="flex-1"
+                      value={form.barcode}
+                      onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
+                      placeholder={t("optional")}
+                    />
+                    {editing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGenerateBarcode}
+                        disabled={generatingBarcode}
+                      >
+                        <Barcode size={14} className="mr-1" />
+                        {generatingBarcode ? tCommon("saving") : t("generateBarcode")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>{tCommon("cancel")}</Button>
             <Button type="submit" disabled={saving}>{saving ? tCommon("saving") : tCommon("save")}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Print barcode modal */}
+      <Modal open={!!printBarcodeProduct} onClose={() => setPrintBarcodeProduct(null)} title={t("printBarcode")}>
+        {printBarcodeProduct && (
+          <div className="flex flex-col items-center gap-4 py-4">
+            <BarcodeLabel
+              barcode={printBarcodeProduct.barcode || `BC-${printBarcodeProduct._id}`}
+              productName={printBarcodeProduct.name}
+              price={printBarcodeProduct.sellPrice}
+              trigger={(onClick) => (
+                <Button onClick={onClick}>
+                  <Printer size={16} className="mr-2" />
+                  {t("printBarcode")}
+                </Button>
+              )}
+            />
+          </div>
+        )}
       </Modal>
     </div>
   );

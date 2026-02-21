@@ -23,11 +23,13 @@ const productSchema = new Schema(
     requiresImei: { type: Boolean, default: false },
     trackByBatch: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    barcode: { type: String, sparse: true },
   },
   { timestamps: true }
 );
 
 productSchema.index({ shopId: 1, channel: 1, isActive: 1 });
+productSchema.index({ shopId: 1, barcode: 1 }, { unique: true, sparse: true });
 
 // Ensure id is always set before save/create (works even if model was cached before id field was added)
 productSchema.pre("validate", function (next) {

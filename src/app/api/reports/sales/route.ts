@@ -45,11 +45,9 @@ export async function GET(request: NextRequest) {
   ]);
 
   return Response.json({
-    list,
-    summary: {
-      totalSales: summary[0]?.totalSales ?? 0,
-      totalVat: summary[0]?.totalVat ?? 0,
-      count: summary[0]?.count ?? 0,
-    },
+    sales: list,
+    totalSales: summary[0]?.totalSales ?? 0,
+    vatCollected: summary[0]?.totalVat ?? 0,
+    invoiceCount: summary[0]?.count ?? 0,
   });
 }

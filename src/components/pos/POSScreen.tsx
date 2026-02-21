@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,8 @@ export function POSScreen({
   const [paymentModalPreSelectId, setPaymentModalPreSelectId] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<LastSale | null>(null);
   const [imeiModal, setImeiModal] = useState<{ product: Product; imeis: ProductImei[] } | null>(null);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   const t = useTranslations("pages");
   const tForms = useTranslations("forms");
@@ -131,6 +133,61 @@ export function POSScreen({
     setImeiModal(null);
   }
 
+  async function handleBarcodeScan(code: string) {
+    if (code.length < 3) return;
+    const res = await fetch(`/api/products/lookup?code=${encodeURIComponent(code)}&channel=${channel}`);
+    setBarcodeInput("");
+    barcodeInputRef.current?.focus();
+    if (!res.ok) {
+      if (res.status === 404) {
+        alert(tErrors("productNotFoundForScan"));
+      }
+      return;
+    }
+    const data = await res.json();
+    const product = data.product as Product;
+    const productId = String(product._id);
+    if (data.type === "imei") {
+      const alreadyInCart = items.some((i) => i.imeiId === data.imeiId);
+      if (alreadyInCart) {
+        alert(tErrors("imeiAlreadyInCart"));
+        return;
+      }
+      addItem({
+        productId,
+        productName: product.name,
+        quantity: 1,
+        unitPrice: product.sellPrice,
+        discount: 0,
+        totalPrice: product.sellPrice,
+        imeiId: data.imeiId,
+        imei: data.imei,
+      });
+      return;
+    }
+    if (data.type === "barcode") {
+      if (getAvailableQty(product) <= 0) return;
+      addItem({ productId, productName: product.name, quantity: 1, unitPrice: product.sellPrice, discount: 0, totalPrice: product.sellPrice });
+      if (product.requiresImei) {
+        fetch(`/api/products/${productId}/imeis`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((imeis: ProductImei[]) => {
+            if (imeis.length > 0) {
+              const state = usePosStore.getState();
+              const idx = state.items.findIndex((i) => i.productId === productId && !i.imeiId);
+              if (idx >= 0) {
+                const line = state.items[idx];
+                if (line.quantity <= 1) usePosStore.getState().removeItem(idx);
+                else usePosStore.getState().updateItemQty(idx, line.quantity - 1);
+              }
+              setImeiModal({ product: { ...product, _id: productId }, imeis });
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
   async function submitPayment(paymentRows: { paymentMethodId: string; amount: number; reference?: string }[]) {
     const totalPaid = paymentRows.reduce((s, r) => s + r.amount, 0);
     if (totalPaid < totals.grandTotal) { alert(tErrors("paymentAmountLessThanTotal")); return; }
@@ -163,8 +220,29 @@ export function POSScreen({
     }
   }
 
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
+
   return (
     <div className="flex h-screen">
+      {/* Hidden input for barcode scanner - receives focus on load so scanner works immediately */}
+      <input
+        ref={barcodeInputRef}
+        type="text"
+        autoComplete="off"
+        aria-label="Barcode scan"
+        value={barcodeInput}
+        onChange={(e) => setBarcodeInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleBarcodeScan(barcodeInput);
+          }
+        }}
+        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        tabIndex={0}
+      />
       {/* Products panel */}
       <div className="flex flex-1 flex-col border-e border-slate-200 bg-white">
         <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-4">

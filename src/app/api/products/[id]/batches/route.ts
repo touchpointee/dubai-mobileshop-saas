@@ -18,15 +18,14 @@ export async function GET(
 ) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
-  const channel = getChannel(session!.user.role) ?? "VAT";
   const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return Response.json({ error: "Invalid product ID" }, { status: 400 });
   }
   await connectDB();
-  const product = await Product.findOne({ _id: id, shopId, channel }).lean();
+  const product = await Product.findOne({ _id: id, shopId }).lean();
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
-  const batches = await ProductBatch.find({ productId: id, shopId, channel, quantity: { $gt: 0 } })
+  const batches = await ProductBatch.find({ productId: id, shopId, quantity: { $gt: 0 } })
     .sort({ createdAt: 1 })
     .lean();
   return Response.json(batches);
@@ -54,7 +53,7 @@ export async function POST(
     return Response.json({ error: "Quantity must be positive and costPrice non-negative" }, { status: 400 });
   }
   await connectDB();
-  const product = await Product.findOne({ _id: id, shopId, channel: staffChannel });
+  const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
   if (!product.trackByBatch) {
     return Response.json({ error: "Product is not batch-tracked" }, { status: 400 });

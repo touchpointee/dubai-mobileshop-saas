@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 
 type VatRow = {
   _id: string;
@@ -81,8 +81,13 @@ export default function VatReportPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader title={t("vatReport")} />
+    <div className="animate-fade-in report-print-area">
+      <PageHeader title={t("vatReport")}>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print">
+          <Printer size={16} className="mr-1.5" />
+          {t("printReport")}
+        </Button>
+      </PageHeader>
 
       <div className="px-6 pb-6 space-y-6">
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   for (const item of items) {
     const { productId, quantity, costPrice, imeis } = item;
     if (!productId || !quantity || costPrice === undefined) continue;
-    const product = await Product.findOne({ _id: productId, shopId, channel: staffChannel });
+    const product = await Product.findOne({ _id: productId, shopId });
     if (!product) continue;
     const qty = Number(quantity);
     const price = Number(costPrice);

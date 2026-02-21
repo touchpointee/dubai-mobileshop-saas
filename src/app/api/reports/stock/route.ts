@@ -3,7 +3,6 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
-import type { Channel } from "@/lib/constants";
 
 type StockRow = {
   _id: unknown;
@@ -26,22 +25,11 @@ export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
 
-  let channelParam = request.nextUrl.searchParams.get("channel");
-  const role = session!.user.role;
-  if (role === "VAT_STAFF") channelParam = "VAT";
-  else if (role === "NON_VAT_STAFF") channelParam = "NON_VAT";
-  const channel: "VAT" | "NON_VAT" | "ALL" =
-    channelParam === "NON_VAT" || channelParam === "ALL" ? channelParam : "VAT";
-
   await connectDB();
 
-  const channelFilter: Record<string, unknown> =
-    channel === "ALL"
-      ? { shopId, channel: { $in: ["VAT", "NON_VAT"] }, isActive: true }
-      : { shopId, channel, isActive: true };
-
-  const list = await Product.find(channelFilter)
-    .sort({ channel: 1, name: 1 })
+  // Shared stock - one list for all products in the shop
+  const list = await Product.find({ shopId, isActive: true })
+    .sort({ name: 1 })
     .lean();
 
   const products = list as unknown as (StockRow & { _id: { toString(): string } })[];

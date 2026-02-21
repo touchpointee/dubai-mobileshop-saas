@@ -146,15 +146,19 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   getVatAmount: (vatableAmount, vatRate) => {
-    return (vatableAmount * vatRate) / 100;
+    // VAT-inclusive: extract VAT from the total
+    // Formula: vatAmount = total * vatRate / (100 + vatRate)
+    if (vatRate <= 0) return 0;
+    return (vatableAmount * vatRate) / (100 + vatRate);
   },
 
   getGrandTotal: (vatRate) => {
     const subtotal = get().getSubtotal();
     const discountAmount = get().getDiscountAmount(subtotal);
     const vatableAmount = get().getVatableAmount(subtotal, discountAmount);
-    const vatAmount = get().getVatAmount(vatableAmount, vatRate);
-    const grandTotal = vatableAmount + vatAmount;
+    // VAT-inclusive: grandTotal = vatableAmount (price already includes VAT)
+    const grandTotal = vatableAmount;
+    const vatAmount = get().getVatAmount(grandTotal, vatRate);
     return {
       subtotal,
       discountAmount,

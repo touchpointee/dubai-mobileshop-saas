@@ -201,7 +201,7 @@ function A4InvoiceDocument({
           )}
           {channel === "VAT" && vatAmount > 0 && (
             <View style={styles.totalRow}>
-              <Text>VAT ({vatRate}%)</Text>
+              <Text>Incl. VAT ({vatRate}%)</Text>
               <Text>{vatAmount.toFixed(2)}</Text>
             </View>
           )}

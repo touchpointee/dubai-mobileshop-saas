@@ -128,7 +128,7 @@ export function ThermalReceipt({
           )}
           {channel === "VAT" && vatAmount > 0 && (
             <div className="flex justify-between text-xs">
-              <span>VAT ({vatRate}%)</span>
+              <span>Incl. VAT ({vatRate}%)</span>
               <span>{formatCurrency(vatAmount)}</span>
             </div>
           )}

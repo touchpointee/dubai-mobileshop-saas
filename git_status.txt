@@ -1,0 +1,41 @@
+﻿ M README.md
+ M messages/ar.json
+ M messages/en.json
+ M package-lock.json
+ M package.json
+ M src/app/[locale]/owner/reports/profit-loss/page.tsx
+ M src/app/[locale]/owner/reports/sales/page.tsx
+ M src/app/[locale]/owner/reports/vat/page.tsx
+ M src/app/api/products/[id]/batches/route.ts
+ M src/app/api/products/[id]/route.ts
+ M src/app/api/products/route.ts
+ M src/app/api/purchases/route.ts
+ M src/app/api/reports/sales/route.ts
+ M src/app/api/reports/stock/route.ts
+ M src/app/api/reports/vat/route.ts
+ M src/app/api/sales/route.ts
+ M src/app/api/service-jobs/[id]/route.ts
+ M src/app/globals.css
+ M src/components/layout/AppSidebar.tsx
+ M src/components/layout/Sidebar.tsx
+ M src/components/pos/POSScreen.tsx
+ M src/components/receipts/A4Invoice.tsx
+ M src/components/receipts/ThermalReceipt.tsx
+ M src/components/shared/DealersPageContent.tsx
+ M src/components/shared/ProductsPageContent.tsx
+ M src/components/shared/PurchasesPageContent.tsx
+ M src/components/shared/ReturnsPageContent.tsx
+ M src/components/shared/ServiceJobDetailContent.tsx
+ M src/lib/utils.ts
+ M src/models/Product.ts
+ M src/stores/pos-store.ts
+?? git_status.txt
+?? src/app/[locale]/non-vat/dealers/[id]/
+?? src/app/[locale]/vat/dealers/[id]/
+?? src/app/api/dealers/[id]/purchases/
+?? src/app/api/products/[id]/generate-barcode/
+?? src/app/api/products/lookup/
+?? src/app/api/service-jobs/[id]/logs/
+?? src/components/barcode/
+?? src/components/shared/DealerDetailPageContent.tsx
+?? src/models/ServiceJobLog.ts

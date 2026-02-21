@@ -241,7 +241,7 @@ export function AppSidebar({ role }: { role: Role }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+          onClick={() => signOut({ callbackUrl: `${window.location.origin}/${locale}/login` })}
           className="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
         >
           <LogOut size={ICON_SIZE} className="flex-shrink-0" />
