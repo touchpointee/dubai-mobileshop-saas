@@ -19,7 +19,7 @@ export function Modal({
   description?: string;
   children: React.ReactNode;
   className?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 }) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
@@ -43,6 +43,7 @@ export function Modal({
     md: "max-w-md",
     lg: "max-w-lg",
     xl: "max-w-2xl",
+    "2xl": "max-w-6xl",
   }[size];
 
   return (

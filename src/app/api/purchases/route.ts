@@ -43,21 +43,17 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT or Non-VAT staff can create purchases" }, { status: 403 });
   }
   const body = await request.json();
-  const { dealerId, items, notes, purchaseDate: purchaseDateInput, applyVat: applyVatInput } = body;
+  const { dealerId, items, notes, purchaseDate: purchaseDateInput } = body;
   if (!dealerId || !mongoose.Types.ObjectId.isValid(dealerId)) {
     return Response.json({ error: "Valid dealer is required" }, { status: 400 });
   }
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "At least one item is required" }, { status: 400 });
   }
-  const applyVat = Boolean(applyVatInput);
   await connectDB();
 
-  let vatRate = 5;
-  if (applyVat) {
-    const shop = await Shop.findById(shopId).select("vatRate").lean();
-    if (shop && typeof shop.vatRate === "number") vatRate = shop.vatRate;
-  }
+  const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
+  const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
 
   const seq = await getNextSequence(new mongoose.Types.ObjectId(shopId as string), COUNTER_KEYS.PURCHASE);
   const invoiceNumber = formatInvoiceNumber("PUR", seq);
@@ -74,16 +70,19 @@ export async function POST(request: NextRequest) {
     subLoc?: string;
     uom: string;
     itemCode?: string;
+    applyVat: boolean;
+    vatAmount: number;
   }[] = [];
 
   for (const item of items) {
-    const { productId, quantity, costPrice, imeis, discount: itemDiscount, subLoc, uom, itemCode } = item;
+    const { productId, quantity, costPrice, imeis, discount: itemDiscount, subLoc, uom, itemCode, applyVat: itemApplyVat } = item;
     if (!productId || !quantity || costPrice === undefined) continue;
     const product = await Product.findOne({ _id: productId, shopId });
     if (!product) continue;
     const qty = Number(quantity);
     const price = Number(costPrice);
     const discount = Math.max(0, Number(itemDiscount) || 0);
+    const applyVatLine = Boolean(itemApplyVat);
     let imeiList: string[] = [];
     if (Array.isArray(imeis)) {
       imeiList = imeis.filter((i: unknown) => typeof i === "string").map((i: string) => String(i).trim()).filter(Boolean);
@@ -97,9 +96,8 @@ export async function POST(request: NextRequest) {
       );
     }
     const totalAfterDisc = Math.max(0, qty * price - discount);
-    if (applyVat && vatRate > 0) {
-      vatAmount += (totalAfterDisc * vatRate) / (100 + vatRate);
-    }
+    const lineVatAmt = applyVatLine && vatRate > 0 ? (totalAfterDisc * vatRate) / (100 + vatRate) : 0;
+    vatAmount += lineVatAmt;
     totalAmount += totalAfterDisc;
     purchaseItems.push({
       productId: new mongoose.Types.ObjectId(productId),
@@ -112,24 +110,27 @@ export async function POST(request: NextRequest) {
       subLoc: typeof subLoc === "string" ? subLoc : undefined,
       uom: typeof uom === "string" && uom.trim() ? uom.trim() : "PCS",
       itemCode: typeof itemCode === "string" ? itemCode : (product as { id?: string; barcode?: string }).id ?? (product as { barcode?: string }).barcode,
+      applyVat: applyVatLine,
+      vatAmount: lineVatAmt,
     });
   }
 
   const grandTotal = totalAmount;
-  const totalExVat = applyVat && vatRate > 0 ? grandTotal - vatAmount : grandTotal;
+  const totalExVat = grandTotal - vatAmount;
+  const anyApplyVat = purchaseItems.some((i) => i.applyVat);
   const createPayload: Record<string, unknown> = {
     shopId,
     channel: staffChannel,
     dealerId,
     invoiceNumber,
     items: purchaseItems,
-    totalAmount: applyVat && vatRate > 0 ? totalExVat : grandTotal,
-    vatAmount: applyVat ? vatAmount : 0,
+    totalAmount: totalExVat,
+    vatAmount,
     grandTotal,
     paidAmount: 0,
     notes: notes?.trim(),
-    applyVat,
-    vatRate: applyVat ? vatRate : undefined,
+    applyVat: anyApplyVat,
+    vatRate: anyApplyVat ? vatRate : undefined,
   };
   const purchaseDate = purchaseDateInput != null && purchaseDateInput !== ""
     ? new Date(purchaseDateInput)

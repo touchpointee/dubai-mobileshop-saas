@@ -13,6 +13,8 @@ const purchaseItemSubSchema = new Schema(
     subLoc: { type: String },
     uom: { type: String, default: "PCS" },
     itemCode: { type: String },
+    applyVat: { type: Boolean, default: false },
+    vatAmount: { type: Number, default: 0 },
   },
   { _id: true }
 );

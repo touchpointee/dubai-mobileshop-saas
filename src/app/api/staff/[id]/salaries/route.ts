@@ -35,7 +35,7 @@ export async function GET(
     .sort({ paidDate: -1 })
     .select("_id amount note paidDate")
     .lean();
-  const totalPaid = list.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+  const totalPaid = (list as unknown as { amount: number }[]).reduce((sum, p) => sum + p.amount, 0);
   return Response.json({ payments: list, totalPaid });
 }
 

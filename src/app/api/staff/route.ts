@@ -15,16 +15,18 @@ export async function GET(request: NextRequest) {
     .sort({ name: 1 })
     .select("_id name phone isActive")
     .lean();
-  const staffIds = list.map((s: { _id: unknown }) => s._id);
+  type StaffLean = { _id: { toString(): string }; name: string; phone?: string; isActive: boolean };
+  const listTyped = list as unknown as StaffLean[];
+  const staffIds = listTyped.map((s) => s._id);
   const totals = await StaffSalaryPayment.aggregate([
     { $match: { shopId, staffId: { $in: staffIds } } },
     { $group: { _id: "$staffId", total: { $sum: "$amount" } } },
   ]);
   const totalByStaff: Record<string, number> = {};
-  totals.forEach((t: { _id: unknown; total: number }) => {
+  (totals as { _id: unknown; total: number }[]).forEach((t) => {
     totalByStaff[String(t._id)] = t.total;
   });
-  const listWithTotal = list.map((s: { _id: { toString(): string }; name: string; phone?: string; isActive: boolean }) => ({
+  const listWithTotal = listTyped.map((s) => ({
     _id: s._id,
     name: s.name,
     phone: s.phone,

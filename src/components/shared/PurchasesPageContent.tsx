@@ -59,9 +59,10 @@ type ItemRow = {
   costPrice: string;
   imeiList: string[];
   discount: string;
+  applyVat: boolean;
 };
 
-const emptyItemRow: ItemRow = { productId: "", quantity: "1", costPrice: "", imeiList: [], discount: "0" };
+const emptyItemRow: ItemRow = { productId: "", quantity: "1", costPrice: "", imeiList: [], discount: "0", applyVat: false };
 
 export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const t = useTranslations("pages");
@@ -86,7 +87,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [dealerId, setDealerId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [applyVat, setApplyVat] = useState(false);
   const [items, setItems] = useState<ItemRow[]>([{ ...emptyItemRow }]);
   const [saving, setSaving] = useState(false);
   const [detailsPurchaseId, setDetailsPurchaseId] = useState<string | null>(null);
@@ -118,7 +118,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
     setDealerId("");
     setPurchaseDate(new Date().toISOString().slice(0, 10));
     setNotes("");
-    setApplyVat(false);
     setItems([{ ...emptyItemRow }]);
     setScanTargetRowIndex(null);
     setScanInputValue("");
@@ -258,7 +257,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  function updateRow(i: number, field: keyof ItemRow, value: string | string[]) {
+  function updateRow(i: number, field: keyof ItemRow, value: string | string[] | boolean) {
     setItems((prev) => {
       const next = [...prev];
       next[i] = { ...next[i], [field]: value };
@@ -289,7 +288,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
       const discount = Math.max(0, Number(row.discount) || 0);
       const lineTotalAfterDisc = Math.max(0, qty * price - discount);
       const priceAftDisc = qty > 0 ? lineTotalAfterDisc / qty : 0;
-      const lineVatAmt = applyVat && vatRate > 0 ? (lineTotalAfterDisc * vatRate) / (100 + vatRate) : 0;
+      const lineVatAmt = row.applyVat && vatRate > 0 ? (lineTotalAfterDisc * vatRate) / (100 + vatRate) : 0;
       return { qty, price, discount, lineTotalAfterDisc, priceAftDisc, lineVatAmt };
     });
   }
@@ -304,7 +303,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
       alert(tErrors("selectDealer") || "Select a dealer");
       return;
     }
-    const purchaseItems: { productId: string; quantity: number; costPrice: number; imeis: string[]; discount?: number }[] = [];
+    const purchaseItems: { productId: string; quantity: number; costPrice: number; imeis: string[]; discount?: number; applyVat?: boolean }[] = [];
     for (let i = 0; i < items.length; i++) {
       const row = items[i];
       if (!row.productId) continue;
@@ -319,14 +318,14 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
           alert(`Add at least one IMEI for ${prod.name}.`);
           return;
         }
-        purchaseItems.push({ productId: row.productId, quantity: imeiList.length, costPrice, imeis: imeiList, discount });
+        purchaseItems.push({ productId: row.productId, quantity: imeiList.length, costPrice, imeis: imeiList, discount, applyVat: row.applyVat });
       } else {
         const qty = Math.max(0, Number(row.quantity) || 0);
         if (qty < 1) {
           alert(`Enter quantity for ${prod.name}.`);
           return;
         }
-        purchaseItems.push({ productId: row.productId, quantity: qty, costPrice, imeis: [], discount });
+        purchaseItems.push({ productId: row.productId, quantity: qty, costPrice, imeis: [], discount, applyVat: row.applyVat });
       }
     }
     if (purchaseItems.length === 0) {
@@ -336,10 +335,9 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
     setSaving(true);
     try {
-      const body: { dealerId: string; items: typeof purchaseItems; notes?: string; purchaseDate?: string; applyVat?: boolean } = {
+      const body: { dealerId: string; items: typeof purchaseItems; notes?: string; purchaseDate?: string } = {
         dealerId: dealerId.trim(),
         items: purchaseItems,
-        applyVat,
       };
       if (notes.trim()) body.notes = notes.trim();
       if (purchaseDate) body.purchaseDate = new Date(purchaseDate).toISOString();
@@ -450,8 +448,10 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                     const discount = item.discount ?? 0;
                     const qty = item.quantity;
                     const priceAftDisc = qty > 0 ? item.totalPrice / qty : 0;
-                    const vatRate = detailsPurchase.applyVat && typeof detailsPurchase.vatRate === "number" ? detailsPurchase.vatRate : 0;
-                    const lineVatAmt = vatRate > 0 ? (item.totalPrice * vatRate) / (100 + vatRate) : 0;
+                    const itemWithVat = item as typeof item & { applyVat?: boolean; vatAmount?: number };
+                    const vatRate = (detailsPurchase.applyVat && typeof detailsPurchase.vatRate === "number") ? detailsPurchase.vatRate : 0;
+                    const lineVatAmt = typeof itemWithVat.vatAmount === "number" ? itemWithVat.vatAmount : (itemWithVat.applyVat && vatRate > 0 ? (item.totalPrice * vatRate) / (100 + vatRate) : 0);
+                    const showVatRate = itemWithVat.applyVat && vatRate > 0 ? vatRate : "—";
                     return (
                       <tr key={i}>
                         <td className="px-3 py-2.5 text-slate-500">{i + 1}</td>
@@ -462,7 +462,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                         <td className="px-3 py-2.5 text-right text-slate-600">{formatCurrency(item.costPrice)}</td>
                         <td className="px-3 py-2.5 text-right text-slate-600">{formatCurrency(discount)}</td>
                         <td className="px-3 py-2.5 text-right text-slate-600">{formatCurrency(priceAftDisc)}</td>
-                        <td className="px-3 py-2.5 text-center text-slate-600">{vatRate}</td>
+                        <td className="px-3 py-2.5 text-center text-slate-600">{showVatRate}</td>
                         <td className="px-3 py-2.5 text-right text-slate-600">{formatCurrency(lineVatAmt)}</td>
                         <td className="px-3 py-2.5 text-right font-medium text-slate-900">{formatCurrency(item.totalPrice)}</td>
                         <td className="px-3 py-2.5">
@@ -506,7 +506,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         )}
       </Modal>
 
-      <Modal open={formOpen} onClose={() => setFormOpen(false)} title="Add Purchase" size="xl">
+      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={t("addPurchase")} size="2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
@@ -537,18 +537,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="mt-1.5" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="purchase-apply-vat"
-              checked={applyVat}
-              onChange={(e) => setApplyVat(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-            />
-            <Label htmlFor="purchase-apply-vat" className="font-normal">{t("applyVat")}</Label>
-            {applyVat && <span className="text-xs text-slate-500">({vatRate}%)</span>}
-          </div>
-
           {hasAnyImeiRow && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
               <Barcode size={18} className="text-slate-500" />
@@ -606,8 +594,9 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                     <th className="w-28 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("priceIncVat")}</th>
                     <th className="w-24 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("disc")}</th>
                     <th className="w-28 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("priceAftDisc")}</th>
-                    {applyVat && <th className="w-14 px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-500">{t("vatPercent")}</th>}
-                    {applyVat && <th className="w-24 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("vatAmt")}</th>}
+                    <th className="w-12 px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-500" title={t("vat")}>{t("vat")}</th>
+                    <th className="w-14 px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-500">{t("vatPercent")}</th>
+                    <th className="w-24 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("vatAmt")}</th>
                     <th className="w-24 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("netAmount")}</th>
                     <th className="min-w-[200px] px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">IMEIs</th>
                     <th className="w-12 px-3 py-2.5" />
@@ -678,8 +667,17 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                           />
                         </td>
                         <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.priceAftDisc) : "—"}</td>
-                        {applyVat && <td className="px-3 py-2 text-center text-slate-600">{vatRate}</td>}
-                        {applyVat && <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.lineVatAmt) : "—"}</td>}
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={row.applyVat}
+                            onChange={(e) => updateRow(i, "applyVat", e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                            title={t("applyVat")}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center text-slate-600">{row.applyVat ? vatRate : "—"}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.lineVatAmt) : "—"}</td>
                         <td className="px-3 py-2 text-right font-medium text-slate-900">{lt ? formatCurrency(lt.lineTotalAfterDisc) : "—"}</td>
                         <td className="px-3 py-2">
                           {isImei ? (
@@ -766,15 +764,15 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
               </table>
             </div>
             <div className="mt-2 flex flex-col items-end gap-0.5 text-sm font-medium text-slate-700">
-              {applyVat && totalVatAmt > 0 && (
-                <span>{t("vatLabel")} ({vatRate}%): <span className="text-slate-900">{formatCurrency(totalVatAmt)}</span></span>
+              {totalVatAmt > 0 && (
+                <span>{t("vat")} ({vatRate}%): <span className="text-slate-900">{formatCurrency(totalVatAmt)}</span></span>
               )}
-              <span>Grand Total: <span className="text-base text-slate-900">{formatCurrency(grandTotal)}</span></span>
+              <span>{t("grandTotal")}: <span className="text-base text-slate-900">{formatCurrency(grandTotal)}</span></span>
             </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>{tCommon("cancel")}</Button>
-            <Button type="submit" disabled={saving}>{saving ? tCommon("saving") : "Save Purchase"}</Button>
+            <Button type="submit" disabled={saving}>{saving ? tCommon("saving") : t("savePurchase")}</Button>
           </div>
         </form>
       </Modal>
