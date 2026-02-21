@@ -7,6 +7,7 @@ import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
 import { ProductBatch } from "@/models/ProductBatch";
 import { Dealer } from "@/models/Dealer";
+import { Shop } from "@/models/Shop";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
@@ -42,17 +43,26 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT or Non-VAT staff can create purchases" }, { status: 403 });
   }
   const body = await request.json();
-  const { dealerId, items, notes, purchaseDate: purchaseDateInput } = body;
+  const { dealerId, items, notes, purchaseDate: purchaseDateInput, applyVat: applyVatInput } = body;
   if (!dealerId || !mongoose.Types.ObjectId.isValid(dealerId)) {
     return Response.json({ error: "Valid dealer is required" }, { status: 400 });
   }
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "At least one item is required" }, { status: 400 });
   }
+  const applyVat = Boolean(applyVatInput);
   await connectDB();
+
+  let vatRate = 5;
+  if (applyVat) {
+    const shop = await Shop.findById(shopId).select("vatRate").lean();
+    if (shop && typeof shop.vatRate === "number") vatRate = shop.vatRate;
+  }
+
   const seq = await getNextSequence(new mongoose.Types.ObjectId(shopId as string), COUNTER_KEYS.PURCHASE);
   const invoiceNumber = formatInvoiceNumber("PUR", seq);
   let totalAmount = 0;
+  let vatAmount = 0;
   const purchaseItems: {
     productId: mongoose.Types.ObjectId;
     productName: string;
@@ -60,15 +70,20 @@ export async function POST(request: NextRequest) {
     costPrice: number;
     totalPrice: number;
     imeis: string[];
+    discount: number;
+    subLoc?: string;
+    uom: string;
+    itemCode?: string;
   }[] = [];
 
   for (const item of items) {
-    const { productId, quantity, costPrice, imeis } = item;
+    const { productId, quantity, costPrice, imeis, discount: itemDiscount, subLoc, uom, itemCode } = item;
     if (!productId || !quantity || costPrice === undefined) continue;
     const product = await Product.findOne({ _id: productId, shopId });
     if (!product) continue;
     const qty = Number(quantity);
     const price = Number(costPrice);
+    const discount = Math.max(0, Number(itemDiscount) || 0);
     let imeiList: string[] = [];
     if (Array.isArray(imeis)) {
       imeiList = imeis.filter((i: unknown) => typeof i === "string").map((i: string) => String(i).trim()).filter(Boolean);
@@ -81,39 +96,50 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const totalPrice = qty * price;
-    totalAmount += totalPrice;
+    const totalAfterDisc = Math.max(0, qty * price - discount);
+    if (applyVat && vatRate > 0) {
+      vatAmount += (totalAfterDisc * vatRate) / (100 + vatRate);
+    }
+    totalAmount += totalAfterDisc;
     purchaseItems.push({
       productId: new mongoose.Types.ObjectId(productId),
       productName: product.name,
       quantity: qty,
       costPrice: price,
-      totalPrice,
+      totalPrice: totalAfterDisc,
       imeis: imeiList,
+      discount,
+      subLoc: typeof subLoc === "string" ? subLoc : undefined,
+      uom: typeof uom === "string" && uom.trim() ? uom.trim() : "PCS",
+      itemCode: typeof itemCode === "string" ? itemCode : (product as { id?: string; barcode?: string }).id ?? (product as { barcode?: string }).barcode,
     });
   }
 
-  const purchaseDate = purchaseDateInput != null && purchaseDateInput !== ""
-    ? new Date(purchaseDateInput)
-    : undefined;
+  const grandTotal = totalAmount;
+  const totalExVat = applyVat && vatRate > 0 ? grandTotal - vatAmount : grandTotal;
   const createPayload: Record<string, unknown> = {
     shopId,
     channel: staffChannel,
     dealerId,
     invoiceNumber,
     items: purchaseItems,
-    totalAmount,
-    vatAmount: 0,
-    grandTotal: totalAmount,
+    totalAmount: applyVat && vatRate > 0 ? totalExVat : grandTotal,
+    vatAmount: applyVat ? vatAmount : 0,
+    grandTotal,
     paidAmount: 0,
     notes: notes?.trim(),
+    applyVat,
+    vatRate: applyVat ? vatRate : undefined,
   };
+  const purchaseDate = purchaseDateInput != null && purchaseDateInput !== ""
+    ? new Date(purchaseDateInput)
+    : undefined;
   if (purchaseDate != null && !Number.isNaN(purchaseDate.getTime())) {
     createPayload.purchaseDate = purchaseDate;
   }
   const purchase = await Purchase.create(createPayload);
 
-  await Dealer.findByIdAndUpdate(dealerId, { $inc: { balance: totalAmount } });
+  await Dealer.findByIdAndUpdate(dealerId, { $inc: { balance: grandTotal } });
 
   for (let i = 0; i < purchaseItems.length; i++) {
     const item = purchaseItems[i];
