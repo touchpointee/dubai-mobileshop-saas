@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { useReactToPrint } from "react-to-print";
@@ -98,8 +98,13 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [addProductForRowIndex, setAddProductForRowIndex] = useState<number | null>(null);
   const [addProductForm, setAddProductForm] = useState({ name: "", costPrice: "", sellPrice: "", requiresImei: false });
   const [addProductSaving, setAddProductSaving] = useState(false);
+  const [scanTargetRowIndex, setScanTargetRowIndex] = useState<number | null>(null);
+  const [scanInputValue, setScanInputValue] = useState("");
   const imeiInputRefs = useRef<(HTMLInputElement | null)[][]>([]);
   const purchasePrintRef = useRef<HTMLDivElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanValueRef = useRef("");
   const { data: detailsPurchase } = useSWR<Purchase | null>(
     detailsPurchaseId ? `/api/purchases/${detailsPurchaseId}` : null,
     fetcher
@@ -115,8 +120,45 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
     setNotes("");
     setApplyVat(false);
     setItems([{ ...emptyItemRow }]);
+    setScanTargetRowIndex(null);
+    setScanInputValue("");
     setFormOpen(true);
   }
+
+  const hasAnyImeiRow = items.some((row) => {
+    const p = productsList.find((x) => x._id === row.productId);
+    return p?.requiresImei === true;
+  });
+
+  function commitScannedImei(valueToAdd: string) {
+    const trimmed = valueToAdd.trim();
+    if (!trimmed || scanTargetRowIndex === null) return;
+    const row = items[scanTargetRowIndex];
+    const existing = (row.imeiList ?? []).map((s) => s.trim()).filter(Boolean);
+    if (existing.includes(trimmed)) return;
+    updateRowImeiList(scanTargetRowIndex, [...existing, trimmed]);
+    setScanInputValue("");
+    scanValueRef.current = "";
+    scanInputRef.current?.focus();
+  }
+
+  function handleScanInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setScanInputValue(v);
+    scanValueRef.current = v;
+    if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+    scanTimeoutRef.current = setTimeout(() => {
+      scanTimeoutRef.current = null;
+      const val = scanValueRef.current.trim();
+      if (val.length >= 8 && scanTargetRowIndex !== null) commitScannedImei(val);
+    }, 100);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+    };
+  }, []);
 
   const dealerOptions = (dealers ?? []).map((d) => ({
     value: d._id,
@@ -207,6 +249,12 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   }
 
   function removeRow(i: number) {
+    setScanTargetRowIndex((prev) => {
+      if (prev === null) return null;
+      if (prev === i) return null;
+      if (prev > i) return prev - 1;
+      return prev;
+    });
     setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
 
@@ -501,6 +549,44 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
             {applyVat && <span className="text-xs text-slate-500">({vatRate}%)</span>}
           </div>
 
+          {hasAnyImeiRow && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
+              <Barcode size={18} className="text-slate-500" />
+              <Label htmlFor="purchase-scan-imei" className="font-normal text-slate-700">{t("scanImei")}</Label>
+              <input
+                id="purchase-scan-imei"
+                ref={scanInputRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label={t("scanImei")}
+                value={scanInputValue}
+                onChange={handleScanInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (scanTimeoutRef.current) {
+                      clearTimeout(scanTimeoutRef.current);
+                      scanTimeoutRef.current = null;
+                    }
+                    commitScannedImei(scanInputValue);
+                  }
+                }}
+                placeholder={scanTargetRowIndex === null ? t("scanForThisRowHint") : t("scanImeiPlaceholder")}
+                className="min-w-[200px] rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              />
+              {scanTargetRowIndex !== null && (() => {
+                const row = items[scanTargetRowIndex];
+                const prod = productsList.find((p) => p._id === row?.productId);
+                return (
+                  <span className="text-xs text-slate-500">
+                    {t("scansAddToThisRow")}: Row {scanTargetRowIndex + 1} — {prod?.name ?? "—"}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
+
           <div>
             <div className="mb-2 flex items-center justify-between">
               <Label>Items</Label>
@@ -545,7 +631,11 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                               label: p.name + (p.requiresImei ? " (IMEI)" : ""),
                             }))}
                             value={row.productId}
-                            onChange={(v) => updateRow(i, "productId", v)}
+                            onChange={(v) => {
+                              updateRow(i, "productId", v);
+                              const p = productsList.find((x) => x._id === v);
+                              if (p?.requiresImei) setScanTargetRowIndex(i);
+                            }}
                             placeholder={t("selectProduct")}
                             addButtonLabel={t("addProduct")}
                             onAdd={() => openAddProductModal(i)}
@@ -594,7 +684,20 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                         <td className="px-3 py-2">
                           {isImei ? (
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setScanTargetRowIndex(i);
+                                    setTimeout(() => scanInputRef.current?.focus(), 0);
+                                  }}
+                                  title={t("scanForThisRow")}
+                                >
+                                  <Barcode size={14} className="mr-1" />
+                                  {t("scanForThisRow")}
+                                </Button>
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -604,6 +707,9 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                                   + Add IMEI
                                 </Button>
                                 <span className="text-xs text-slate-500">Count: {imeiCount}</span>
+                                {scanTargetRowIndex === i && (
+                                  <span className="text-xs text-teal-600">{t("scansAddToThisRow")}</span>
+                                )}
                               </div>
                               <div className="max-h-24 overflow-y-auto flex flex-wrap gap-1">
                                 {(row.imeiList ?? []).map((val, j) => (

@@ -16,4 +16,6 @@ export { ReturnModel } from "./Return";
 export { ExpenseCategory } from "./ExpenseCategory";
 export { Expense } from "./Expense";
 export { StaffSalary } from "./StaffSalary";
+export { Staff } from "./Staff";
+export { StaffSalaryPayment } from "./StaffSalaryPayment";
 export { Counter } from "./Counter";
