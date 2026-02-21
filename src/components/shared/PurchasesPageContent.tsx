@@ -17,6 +17,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 
 type Dealer = { _id: string; name: string; phone?: string };
+type ProductCategory = { _id: string; name: string };
 type Product = {
   _id: string;
   name: string;
@@ -78,6 +79,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const { data: purchases, isLoading: loadingPurchases } = useSWR<Purchase[]>(purchasesKey, fetcher);
   const { data: products } = useSWR<Product[]>(productsKey, fetcher);
   const { data: dealers } = useSWR<Dealer[]>(dealersKey, fetcher);
+  const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", fetcher);
   const { data: shop } = useSWR<{ vatRate?: number }>("/api/shop", fetcher);
 
   const productsList = Array.isArray(products) ? products : [];
@@ -96,7 +98,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [addDealerSaving, setAddDealerSaving] = useState(false);
   const [addProductModalOpen, setAddProductModalOpen] = useState(false);
   const [addProductForRowIndex, setAddProductForRowIndex] = useState<number | null>(null);
-  const [addProductForm, setAddProductForm] = useState({ name: "", costPrice: "", sellPrice: "", requiresImei: false });
+  const [addProductForm, setAddProductForm] = useState({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
   const [addProductSaving, setAddProductSaving] = useState(false);
   const [scanTargetRowIndex, setScanTargetRowIndex] = useState<number | null>(null);
   const [scanInputValue, setScanInputValue] = useState("");
@@ -194,7 +196,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
   function openAddProductModal(rowIndex: number) {
     setAddProductForRowIndex(rowIndex);
-    setAddProductForm({ name: "", costPrice: "", sellPrice: "", requiresImei: false });
+    setAddProductForm((prev) => ({ name: "", categoryId: "", dealerId: dealerId || "", costPrice: "", sellPrice: "", requiresImei: false }));
     setAddProductModalOpen(true);
   }
 
@@ -219,6 +221,8 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          categoryId: addProductForm.categoryId || undefined,
+          dealerId: addProductForm.dealerId || undefined,
           costPrice,
           sellPrice,
           requiresImei: addProductForm.requiresImei,
@@ -234,7 +238,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         }
         setAddProductModalOpen(false);
         setAddProductForRowIndex(null);
-        setAddProductForm({ name: "", costPrice: "", sellPrice: "", requiresImei: false });
+        setAddProductForm({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
       } else {
         alert(data.error || tErrors("errorSavingProduct"));
       }
@@ -582,7 +586,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                 <Plus size={14} className="mr-1" /> Add row
               </Button>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-visible rounded-xl border border-slate-200">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -816,6 +820,34 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
               onChange={(e) => setAddProductForm((f) => ({ ...f, name: e.target.value }))}
               required
             />
+          </div>
+          <div>
+            <Label htmlFor="add-product-category">{tTables("category")}</Label>
+            <select
+              id="add-product-category"
+              className="mt-1.5 flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              value={addProductForm.categoryId}
+              onChange={(e) => setAddProductForm((f) => ({ ...f, categoryId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {(categories ?? []).map((c) => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="add-product-dealer">{tTables("dealer")}</Label>
+            <select
+              id="add-product-dealer"
+              className="mt-1.5 flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              value={addProductForm.dealerId}
+              onChange={(e) => setAddProductForm((f) => ({ ...f, dealerId: e.target.value }))}
+            >
+              <option value="">{t("noneOption")}</option>
+              {(dealers ?? []).map((d) => (
+                <option key={d._id} value={d._id}>{d.name}{d.phone ? ` — ${d.phone}` : ""}</option>
+              ))}
+            </select>
           </div>
           <div>
             <Label htmlFor="add-product-cost">{tForms("costPrice")} *</Label>
