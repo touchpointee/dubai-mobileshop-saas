@@ -95,16 +95,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const totalAfterDisc = Math.max(0, qty * price - discount);
-    const lineVatAmt = applyVatLine && vatRate > 0 ? (totalAfterDisc * vatRate) / (100 + vatRate) : 0;
+    const totalExVatLine = Math.max(0, qty * price - discount);
+    const lineVatAmt = applyVatLine && vatRate > 0 ? totalExVatLine * (vatRate / 100) : 0;
+    const totalInclVatLine = totalExVatLine + lineVatAmt;
     vatAmount += lineVatAmt;
-    totalAmount += totalAfterDisc;
+    totalAmount += totalExVatLine;
     purchaseItems.push({
       productId: new mongoose.Types.ObjectId(productId),
       productName: product.name,
       quantity: qty,
       costPrice: price,
-      totalPrice: totalAfterDisc,
+      totalPrice: totalInclVatLine,
       imeis: imeiList,
       discount,
       subLoc: typeof subLoc === "string" ? subLoc : undefined,
@@ -115,8 +116,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const grandTotal = totalAmount;
-  const totalExVat = grandTotal - vatAmount;
+  const grandTotal = totalAmount + vatAmount;
+  const totalExVat = totalAmount;
   const anyApplyVat = purchaseItems.some((i) => i.applyVat);
   const createPayload: Record<string, unknown> = {
     shopId,

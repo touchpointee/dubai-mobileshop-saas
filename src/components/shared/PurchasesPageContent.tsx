@@ -290,15 +290,17 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         ? (row.imeiList ?? []).map((s) => s.trim()).filter(Boolean).length
         : Math.max(0, Number(row.quantity) || 0);
       const discount = Math.max(0, Number(row.discount) || 0);
-      const lineTotalAfterDisc = Math.max(0, qty * price - discount);
-      const priceAftDisc = qty > 0 ? lineTotalAfterDisc / qty : 0;
-      const lineVatAmt = row.applyVat && vatRate > 0 ? (lineTotalAfterDisc * vatRate) / (100 + vatRate) : 0;
-      return { qty, price, discount, lineTotalAfterDisc, priceAftDisc, lineVatAmt };
+      const lineTotalExVat = Math.max(0, qty * price - discount);
+      const priceAftDisc = qty > 0 ? lineTotalExVat / qty : 0;
+      // VAT added on top of product price when VAT is ticked
+      const lineVatAmt = row.applyVat && vatRate > 0 ? lineTotalExVat * (vatRate / 100) : 0;
+      const lineTotalIncl = lineTotalExVat + lineVatAmt;
+      return { qty, price, discount, lineTotalExVat, lineTotalIncl, priceAftDisc, lineVatAmt };
     });
   }
 
   const lineTotals = getLineTotals();
-  const grandTotal = lineTotals.reduce((sum, l) => sum + l.lineTotalAfterDisc, 0);
+  const grandTotal = lineTotals.reduce((sum, l) => sum + l.lineTotalIncl, 0);
   const totalVatAmt = lineTotals.reduce((sum, l) => sum + l.lineVatAmt, 0);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -682,7 +684,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                         </td>
                         <td className="px-3 py-2 text-center text-slate-600">{row.applyVat ? vatRate : "—"}</td>
                         <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.lineVatAmt) : "—"}</td>
-                        <td className="px-3 py-2 text-right font-medium text-slate-900">{lt ? formatCurrency(lt.lineTotalAfterDisc) : "—"}</td>
+                        <td className="px-3 py-2 text-right font-medium text-slate-900">{lt ? formatCurrency(lt.lineTotalIncl) : "—"}</td>
                         <td className="px-3 py-2">
                           {isImei ? (
                             <div className="space-y-1">
