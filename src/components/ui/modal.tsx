@@ -38,27 +38,29 @@ export function Modal({
 
   if (!open) return null;
 
-  const maxW = {
+  const sizeClasses = {
     sm: "max-w-sm",
     md: "max-w-md",
     lg: "max-w-lg",
     xl: "max-w-2xl",
-    "2xl": "max-w-6xl",
+    "2xl": "w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col",
   }[size];
 
+  const isFullView = size === "2xl";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
         className={cn(
           "relative w-full animate-fade-in rounded-xl border border-slate-200 bg-white shadow-xl",
-          "max-h-[90vh] overflow-y-auto",
-          maxW,
+          !isFullView && "max-h-[90vh] overflow-y-auto",
+          sizeClasses,
           className
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+          <div className={cn("flex items-start justify-between border-b border-slate-100 px-6", isFullView ? "py-3 shrink-0" : "py-4")}>
             <div>
               {title && <h2 className="text-base font-semibold text-slate-900">{title}</h2>}
               {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
@@ -72,7 +74,7 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className={cn(isFullView ? "px-4 py-3 flex-1 min-h-0 overflow-hidden flex flex-col" : "px-6 py-4")}>{children}</div>
       </div>
     </div>
   );

@@ -513,8 +513,8 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
       </Modal>
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title={t("addPurchase")} size="2xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 gap-3">
+          <div className="grid gap-3 sm:grid-cols-3 shrink-0">
             <div>
               <Label>{tTables("dealer")} *</Label>
               <div className="mt-1.5">
@@ -544,7 +544,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
             </div>
           </div>
           {hasAnyImeiRow && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 shrink-0">
               <Barcode size={18} className="text-slate-500" />
               <Label htmlFor="purchase-scan-imei" className="font-normal text-slate-700">{t("scanImei")}</Label>
               <input
@@ -581,31 +581,31 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
             </div>
           )}
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="mb-1.5 flex items-center justify-between shrink-0">
               <Label>Items</Label>
               <Button type="button" variant="outline" size="sm" onClick={addRow}>
                 <Plus size={14} className="mr-1" /> Add row
               </Button>
             </div>
-            <div className="overflow-visible rounded-xl border border-slate-200">
-              <table className="w-full text-sm">
+            <div className="rounded-xl border border-slate-200 flex-1 min-h-0 overflow-hidden">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
-                    <th className="w-10 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">#</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("itemCode")}</th>
-                    <th className="min-w-[160px] px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("description")}</th>
-                    <th className="w-16 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("uom")}</th>
-                    <th className="w-20 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Qty</th>
-                    <th className="w-28 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("priceIncVat")}</th>
-                    <th className="w-24 px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">{t("disc")}</th>
-                    <th className="w-28 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("priceAftDisc")}</th>
-                    <th className="w-12 px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-500" title={t("vat")}>{t("vat")}</th>
-                    <th className="w-14 px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-500">{t("vatPercent")}</th>
-                    <th className="w-24 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("vatAmt")}</th>
-                    <th className="w-24 px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">{t("netAmount")}</th>
-                    <th className="min-w-[200px] px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">IMEIs</th>
-                    <th className="w-12 px-3 py-2.5" />
+                    <th className="w-8 px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">#</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">{t("itemCode")}</th>
+                    <th className="min-w-[120px] px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">{t("description")}</th>
+                    <th className="w-12 px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">{t("uom")}</th>
+                    <th className="w-14 px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">Qty</th>
+                    <th className="w-24 px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">{t("priceIncVat")}</th>
+                    <th className="w-20 px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">{t("disc")}</th>
+                    <th className="w-24 px-2 py-1.5 text-right text-[10px] font-semibold uppercase text-slate-500">{t("priceAftDisc")}</th>
+                    <th className="w-10 px-2 py-1.5 text-center text-[10px] font-semibold uppercase text-slate-500" title={t("vat")}>{t("vat")}</th>
+                    <th className="w-12 px-2 py-1.5 text-center text-[10px] font-semibold uppercase text-slate-500">{t("vatPercent")}</th>
+                    <th className="w-20 px-2 py-1.5 text-right text-[10px] font-semibold uppercase text-slate-500">{t("vatAmt")}</th>
+                    <th className="w-20 px-2 py-1.5 text-right text-[10px] font-semibold uppercase text-slate-500">{t("netAmount")}</th>
+                    <th className="min-w-[140px] px-2 py-1.5 text-left text-[10px] font-semibold uppercase text-slate-500">IMEIs</th>
+                    <th className="w-8 px-2 py-1.5" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -617,9 +617,9 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                     const itemCode = prod ? (prod.id ?? prod.barcode ?? prod._id) : "—";
                     return (
                       <tr key={i}>
-                        <td className="px-3 py-2 text-slate-500">{i + 1}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-slate-600">{row.productId ? itemCode : "—"}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5 text-slate-500">{i + 1}</td>
+                        <td className="px-2 py-1.5 font-mono text-xs text-slate-600">{row.productId ? itemCode : "—"}</td>
+                        <td className="px-2 py-1.5">
                           <SearchableSelect
                             options={productsList.map((p) => ({
                               value: p._id,
@@ -637,8 +637,8 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             className="min-w-[180px]"
                           />
                         </td>
-                        <td className="px-3 py-2 text-slate-600">PCS</td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5 text-slate-600">PCS</td>
+                        <td className="px-2 py-1.5">
                           {isImei ? (
                             <span className="text-slate-600 font-medium">{imeiCount}</span>
                           ) : (
@@ -651,7 +651,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             />
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             step="0.01"
@@ -662,7 +662,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             className="w-24"
                           />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           <Input
                             type="number"
                             step="0.01"
@@ -672,8 +672,8 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             className="w-20"
                           />
                         </td>
-                        <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.priceAftDisc) : "—"}</td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-2 py-1.5 text-right text-slate-600">{lt ? formatCurrency(lt.priceAftDisc) : "—"}</td>
+                        <td className="px-2 py-1.5 text-center">
                           <input
                             type="checkbox"
                             checked={row.applyVat}
@@ -682,10 +682,10 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             title={t("applyVat")}
                           />
                         </td>
-                        <td className="px-3 py-2 text-center text-slate-600">{row.applyVat ? vatRate : "—"}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{lt ? formatCurrency(lt.lineVatAmt) : "—"}</td>
-                        <td className="px-3 py-2 text-right font-medium text-slate-900">{lt ? formatCurrency(lt.lineTotalIncl) : "—"}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5 text-center text-slate-600">{row.applyVat ? vatRate : "—"}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{lt ? formatCurrency(lt.lineVatAmt) : "—"}</td>
+                        <td className="px-2 py-1.5 text-right font-medium text-slate-900">{lt ? formatCurrency(lt.lineTotalIncl) : "—"}</td>
+                        <td className="px-2 py-1.5">
                           {isImei ? (
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -758,7 +758,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                             <span className="text-slate-400 text-xs">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           {items.length > 1 && (
                             <Button type="button" variant="ghost" size="sm" className="text-red-500" onClick={() => removeRow(i)}>×</Button>
                           )}
@@ -769,14 +769,14 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                 </tbody>
               </table>
             </div>
-            <div className="mt-2 flex flex-col items-end gap-0.5 text-sm font-medium text-slate-700">
+            <div className="mt-1.5 flex flex-col items-end gap-0.5 text-xs font-medium text-slate-700 shrink-0">
               {totalVatAmt > 0 && (
                 <span>{t("vat")} ({vatRate}%): <span className="text-slate-900">{formatCurrency(totalVatAmt)}</span></span>
               )}
-              <span>{t("grandTotal")}: <span className="text-base text-slate-900">{formatCurrency(grandTotal)}</span></span>
+              <span>{t("grandTotal")}: <span className="text-sm text-slate-900">{formatCurrency(grandTotal)}</span></span>
             </div>
           </div>
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 shrink-0">
             <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>{tCommon("cancel")}</Button>
             <Button type="submit" disabled={saving}>{saving ? tCommon("saving") : t("savePurchase")}</Button>
           </div>
