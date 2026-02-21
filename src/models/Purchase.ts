@@ -9,6 +9,10 @@ const purchaseItemSubSchema = new Schema(
     costPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
     imeis: [{ type: String }],
+    discount: { type: Number, default: 0 },
+    subLoc: { type: String },
+    uom: { type: String, default: "PCS" },
+    itemCode: { type: String },
   },
   { _id: true }
 );
@@ -26,6 +30,8 @@ const purchaseSchema = new Schema(
     paidAmount: { type: Number, default: 0 },
     notes: { type: String },
     purchaseDate: { type: Date, default: Date.now },
+    applyVat: { type: Boolean, default: false },
+    vatRate: { type: Number },
   },
   { timestamps: true }
 );
