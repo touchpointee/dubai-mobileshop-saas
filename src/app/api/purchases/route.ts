@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT or Non-VAT staff can create purchases" }, { status: 403 });
   }
   const body = await request.json();
-  const { dealerId, items, notes, purchaseDate: purchaseDateInput } = body;
+  const { dealerId, items, notes, purchaseDate: purchaseDateInput, invoiceNumber: bodyInvoiceNumber } = body;
   if (!dealerId || !mongoose.Types.ObjectId.isValid(dealerId)) {
     return Response.json({ error: "Valid dealer is required" }, { status: 400 });
   }
@@ -55,8 +55,13 @@ export async function POST(request: NextRequest) {
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
 
-  const seq = await getNextSequence(new mongoose.Types.ObjectId(shopId as string), COUNTER_KEYS.PURCHASE);
-  const invoiceNumber = formatInvoiceNumber("PUR", seq);
+  let invoiceNumber: string;
+  if (typeof bodyInvoiceNumber === "string" && bodyInvoiceNumber.trim()) {
+    invoiceNumber = bodyInvoiceNumber.trim();
+  } else {
+    const seq = await getNextSequence(new mongoose.Types.ObjectId(shopId as string), COUNTER_KEYS.PURCHASE);
+    invoiceNumber = formatInvoiceNumber("PUR", seq);
+  }
   let totalAmount = 0;
   let vatAmount = 0;
   const purchaseItems: {

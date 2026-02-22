@@ -88,6 +88,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [formOpen, setFormOpen] = useState(false);
   const [dealerId, setDealerId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [purchaseInvoice, setPurchaseInvoice] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<ItemRow[]>([{ ...emptyItemRow }]);
   const [saving, setSaving] = useState(false);
@@ -119,6 +120,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   function openForm() {
     setDealerId("");
     setPurchaseDate(new Date().toISOString().slice(0, 10));
+    setPurchaseInvoice("");
     setNotes("");
     setItems([{ ...emptyItemRow }]);
     setScanTargetRowIndex(null);
@@ -341,12 +343,13 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
     setSaving(true);
     try {
-      const body: { dealerId: string; items: typeof purchaseItems; notes?: string; purchaseDate?: string } = {
+      const body: { dealerId: string; items: typeof purchaseItems; notes?: string; purchaseDate?: string; invoiceNumber?: string } = {
         dealerId: dealerId.trim(),
         items: purchaseItems,
       };
       if (notes.trim()) body.notes = notes.trim();
       if (purchaseDate) body.purchaseDate = new Date(purchaseDate).toISOString();
+      if (purchaseInvoice.trim()) body.invoiceNumber = purchaseInvoice.trim();
       const res = await fetch("/api/purchases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -514,7 +517,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title={t("addPurchase")} size="2xl">
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 gap-3">
-          <div className="grid gap-3 sm:grid-cols-3 shrink-0">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 shrink-0">
             <div>
               <Label>{tTables("dealer")} *</Label>
               <div className="mt-1.5">
@@ -536,6 +539,15 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                 className="mt-1.5"
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>{tTables("invoice")}</Label>
+              <Input
+                value={purchaseInvoice}
+                onChange={(e) => setPurchaseInvoice(e.target.value)}
+                placeholder="Optional — auto-generated if empty"
+                className="mt-1.5"
               />
             </div>
             <div>
@@ -588,7 +600,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
                 <Plus size={14} className="mr-1" /> Add row
               </Button>
             </div>
-            <div className="rounded-xl border border-slate-200 flex-1 min-h-0 overflow-hidden">
+            <div className="rounded-xl border border-slate-200 flex-1 min-h-0 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
