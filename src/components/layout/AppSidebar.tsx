@@ -8,6 +8,7 @@ import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/stores/navigation-store";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { AddToDesktopButton } from "./AddToDesktopButton";
 import {
   LayoutDashboard,
   Store,
@@ -256,6 +257,7 @@ export function AppSidebar({ role }: { role: Role }) {
       </nav>
 
       <div className="shrink-0 border-t border-slate-100 px-3 py-4 space-y-3">
+        <AddToDesktopButton />
         <div className="flex justify-center">
           <LocaleSwitcher currentLocale={locale} />
         </div>

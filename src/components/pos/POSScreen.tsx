@@ -297,16 +297,16 @@ export function POSScreen({
                   type="button"
                   onClick={() => handleAddProduct(p)}
                   disabled={availableQty <= 0}
-                  className="group block min-h-[88px] rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-teal-200 hover:shadow-md active:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
+                  className="group block min-h-[88px] min-w-0 w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-4 text-left transition hover:border-teal-200 hover:shadow-md active:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600">
+                  <div className="mb-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600">
                     <Package size={22} />
                   </div>
-                  <p className="truncate text-base font-medium text-slate-900">{p.name}</p>
-                  {p.brand && <p className="truncate text-sm text-slate-400">{p.brand}</p>}
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="text-base font-bold text-teal-600">{formatCurrency(p.sellPrice)}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${availableQty <= 2 ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"}`}>
+                  <p className="min-w-0 truncate text-base font-medium text-slate-900">{p.name}</p>
+                  {p.brand && <p className="min-w-0 truncate text-sm text-slate-400">{p.brand}</p>}
+                  <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-base font-bold text-teal-600">{formatCurrency(p.sellPrice)}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${availableQty <= 2 ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"}`}>
                       {p.requiresImei ? `${availableQty} IMEI` : `${availableQty} left`}
                     </span>
                   </div>

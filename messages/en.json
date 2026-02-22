@@ -63,7 +63,9 @@
     "sectionPartners": "Partners",
     "sectionTransactions": "Transactions",
     "sectionSell": "Sell",
-    "sectionSettings": "Settings"
+    "sectionSettings": "Settings",
+    "addToDesktop": "Add to desktop",
+    "addToDesktopHint": "Use your browser menu (e.g. ⋮ or Install app) to install this app and use it like a desktop app."
   },
   "pages": {
     "dashboard": "Dashboard",

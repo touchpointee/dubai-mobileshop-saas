@@ -10,6 +10,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Dubai Mobile Shop POS",
   description: "Cloud POS system for Dubai mobile shops",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0d9488",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "POS" },
 };
 
 export default function RootLayout({

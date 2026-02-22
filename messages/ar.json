@@ -63,7 +63,9 @@
     "sectionPartners": "الشركاء",
     "sectionTransactions": "المعاملات",
     "sectionSell": "البيع",
-    "sectionSettings": "الإعدادات"
+    "sectionSettings": "الإعدادات",
+    "addToDesktop": "إضافة إلى سطح المكتب",
+    "addToDesktopHint": "استخدم قائمة المتصفح (مثل ⋮ أو تثبيت التطبيق) لتثبيت هذا التطبيق واستخدامه كتطبيق سطح مكتب."
   },
   "pages": {
     "dashboard": "لوحة التحكم",
