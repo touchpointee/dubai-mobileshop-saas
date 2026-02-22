@@ -42,8 +42,13 @@ export function AddToDesktopButton() {
 
   const handleClick = async () => {
     if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      setDeferredPrompt(null);
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") setDeferredPrompt(null);
+      } catch {
+        setShowHint(true);
+      }
     } else {
       setShowHint(true);
     }
@@ -71,9 +76,9 @@ export function AddToDesktopButton() {
         {t("addToDesktop")}
       </button>
       {showHint && (
-        <div className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+        <div className="absolute bottom-full left-0 right-0 z-50 mb-2 max-w-[320px] rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm text-slate-700">{t("addToDesktopHint")}</p>
+            <p className="text-sm text-slate-700">{t("addToDesktopHintMenu")}</p>
             <button
               type="button"
               onClick={() => setShowHint(false)}

@@ -65,7 +65,8 @@
     "sectionSell": "Sell",
     "sectionSettings": "Settings",
     "addToDesktop": "Add to desktop",
-    "addToDesktopHint": "Use your browser menu (e.g. ⋮ or Install app) to install this app and use it like a desktop app."
+    "addToDesktopHint": "Use your browser menu (e.g. ⋮ or Install app) to install this app and use it like a desktop app.",
+    "addToDesktopHintMenu": "Install from the browser menu: click ⋮ (top right) → Apps → Install Dubai Mobile Shop POS. On the live site (HTTPS), this button will open the install dialog directly after you use the app a moment."
   },
   "pages": {
     "dashboard": "Dashboard",

@@ -81,17 +81,35 @@ export function Sidebar({ role }: { role: Role }) {
           const label = item.labelKey.startsWith("nav.")
             ? t(item.labelKey as "nav.dashboard")
             : item.labelKey;
-          const isActive = pathname?.includes(item.href);
+          const localePath = `/${locale}${item.href}`;
+          // With localePrefix "as-needed", default locale has no URL prefix
+          const isActive =
+            pathname === localePath ||
+            pathname?.startsWith(`${localePath}/`) ||
+            pathname === item.href ||
+            pathname?.startsWith(`${item.href}/`);
+          const linkClassName = cn(
+            "block rounded px-3 py-2 text-sm transition",
+            isActive
+              ? "bg-teal-600 text-white font-bold cursor-default"
+              : "font-medium text-gray-700 hover:bg-gray-100"
+          );
+          if (isActive) {
+            return (
+              <span
+                key={item.href}
+                aria-current="page"
+                className={linkClassName}
+              >
+                {label}
+              </span>
+            );
+          }
           return (
             <Link
               key={item.href}
-              href={item.href}
-              className={cn(
-                "block rounded px-3 py-2 text-sm font-medium transition",
-                isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-700 hover:bg-gray-100"
-              )}
+              href={localePath}
+              className={linkClassName}
             >
               {label}
             </Link>

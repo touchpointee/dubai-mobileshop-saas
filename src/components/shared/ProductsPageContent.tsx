@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
+import { swrFetcher } from "@/lib/swr-fetcher";
 import { Plus, Pencil, Trash2, Barcode, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
@@ -37,8 +38,6 @@ type Product = {
 
 type ProductCategory = { _id: string; name: string; nameAr?: string; sortOrder: number };
 type Dealer = { _id: string; name: string; phone?: string };
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const emptyForm = {
   name: "",
@@ -77,9 +76,9 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
   const swrKey = `/api/products?channel=${channel}`;
-  const { data: products, isLoading } = useSWR<Product[]>(swrKey, fetcher);
-  const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", fetcher);
-  const { data: dealers } = useSWR<Dealer[]>("/api/dealers", fetcher);
+  const { data: products, isLoading } = useSWR<Product[]>(swrKey, swrFetcher);
+  const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", swrFetcher);
+  const { data: dealers } = useSWR<Dealer[]>("/api/dealers", swrFetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);

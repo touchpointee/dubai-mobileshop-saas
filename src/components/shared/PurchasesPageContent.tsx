@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
+import { swrFetcher } from "@/lib/swr-fetcher";
 import { useReactToPrint } from "react-to-print";
 import { Plus, FileText, Barcode, Layers, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -52,8 +53,6 @@ type Purchase = {
   totalAmount?: number;
 };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
 type ItemRow = {
   productId: string;
   quantity: string;
@@ -76,11 +75,11 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const productsKey = `/api/products?channel=${channel}`;
   const dealersKey = "/api/dealers";
 
-  const { data: purchases, isLoading: loadingPurchases } = useSWR<Purchase[]>(purchasesKey, fetcher);
-  const { data: products } = useSWR<Product[]>(productsKey, fetcher);
-  const { data: dealers } = useSWR<Dealer[]>(dealersKey, fetcher);
-  const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", fetcher);
-  const { data: shop } = useSWR<{ vatRate?: number }>("/api/shop", fetcher);
+  const { data: purchases, isLoading: loadingPurchases } = useSWR<Purchase[]>(purchasesKey, swrFetcher);
+  const { data: products } = useSWR<Product[]>(productsKey, swrFetcher);
+  const { data: dealers } = useSWR<Dealer[]>(dealersKey, swrFetcher);
+  const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", swrFetcher);
+  const { data: shop } = useSWR<{ vatRate?: number }>("/api/shop", swrFetcher);
 
   const productsList = Array.isArray(products) ? products : [];
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
@@ -110,7 +109,7 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const scanValueRef = useRef("");
   const { data: detailsPurchase } = useSWR<Purchase | null>(
     detailsPurchaseId ? `/api/purchases/${detailsPurchaseId}` : null,
-    fetcher
+    swrFetcher
   );
   const handlePrintPurchase = useReactToPrint({
     contentRef: purchasePrintRef,

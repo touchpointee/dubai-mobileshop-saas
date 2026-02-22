@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
+import { swrFetcher } from "@/lib/swr-fetcher";
 import { Plus, Pencil, Trash2, Banknote } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
@@ -27,7 +28,6 @@ type Dealer = {
 };
 
 const SWR_KEY = "/api/dealers";
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const emptyForm = { name: "", phone: "", email: "", company: "", address: "", trnNumber: "" };
 
@@ -39,7 +39,7 @@ export function DealersPageContent() {
   const tModals = useTranslations("modals");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
-  const { data: dealers, isLoading } = useSWR<Dealer[]>(SWR_KEY, fetcher);
+  const { data: dealers, isLoading } = useSWR<Dealer[]>(SWR_KEY, swrFetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Dealer | null>(null);
   const [form, setForm] = useState(emptyForm);

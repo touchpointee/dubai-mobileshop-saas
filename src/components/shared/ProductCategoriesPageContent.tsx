@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
+import { swrFetcher } from "@/lib/swr-fetcher";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
@@ -19,12 +20,11 @@ type ProductCategory = {
 };
 
 const SWR_KEY = "/api/product-categories";
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const emptyForm = { name: "", nameAr: "", sortOrder: 0 };
 
 export function ProductCategoriesPageContent() {
-  const { data: categories, isLoading } = useSWR<ProductCategory[]>(SWR_KEY, fetcher);
+  const { data: categories, isLoading } = useSWR<ProductCategory[]>(SWR_KEY, swrFetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ProductCategory | null>(null);
   const [form, setForm] = useState(emptyForm);

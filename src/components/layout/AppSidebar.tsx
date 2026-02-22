@@ -230,22 +230,39 @@ export function AppSidebar({ role }: { role: Role }) {
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const localePath = `/${locale}${item.href}`;
-                  const isActive = pathname === localePath || pathname?.startsWith(`${localePath}/`);
+                  // With localePrefix "as-needed", default locale has no URL prefix (e.g. /vat/stock not /en/vat/stock)
+                  const isActive =
+                    pathname === localePath ||
+                    pathname?.startsWith(`${localePath}/`) ||
+                    pathname === item.href ||
+                    pathname?.startsWith(`${item.href}/`);
+                  const linkClassName = cn(
+                    "flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-3 text-base transition-colors",
+                    isActive
+                      ? "bg-teal-600 text-white font-bold cursor-default"
+                      : "font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  );
+                  const iconClassName = cn("flex-shrink-0", isActive ? "text-white" : "text-slate-400");
+                  if (isActive) {
+                    return (
+                      <span
+                        key={item.href}
+                        aria-current="page"
+                        className={linkClassName}
+                      >
+                        <span className={iconClassName}>{item.icon}</span>
+                        {t(item.labelKey)}
+                      </span>
+                    );
+                  }
                   return (
                     <Link
                       key={item.href}
                       href={localePath}
-                      onClick={() => !isActive && setNavigating(true)}
-                      className={cn(
-                        "flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition-colors",
-                        isActive
-                          ? "bg-teal-50 text-teal-700"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      )}
+                      onClick={() => setNavigating(true)}
+                      className={linkClassName}
                     >
-                      <span className={cn("flex-shrink-0", isActive ? "text-teal-600" : "text-slate-400")}>
-                        {item.icon}
-                      </span>
+                      <span className={iconClassName}>{item.icon}</span>
                       {t(item.labelKey)}
                     </Link>
                   );
