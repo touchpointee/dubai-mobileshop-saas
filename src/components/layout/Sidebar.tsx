@@ -29,6 +29,8 @@ const NAV_BY_ROLE: Record<
   VAT_STAFF: [
     { href: "/vat/pos", labelKey: "nav.pos" },
     { href: "/vat/products", labelKey: "nav.products" },
+    { href: "/vat/categories", labelKey: "nav.categories" },
+    { href: "/vat/categories", labelKey: "nav.subcategory" },
     { href: "/vat/dealers", labelKey: "nav.dealers" },
     { href: "/vat/customers", labelKey: "nav.customers" },
     { href: "/vat/purchases", labelKey: "nav.purchases" },
@@ -39,6 +41,8 @@ const NAV_BY_ROLE: Record<
   NON_VAT_STAFF: [
     { href: "/non-vat/pos", labelKey: "nav.pos" },
     { href: "/non-vat/products", labelKey: "nav.products" },
+    { href: "/non-vat/categories", labelKey: "nav.categories" },
+    { href: "/non-vat/categories", labelKey: "nav.subcategory" },
     { href: "/non-vat/dealers", labelKey: "nav.dealers" },
     { href: "/non-vat/customers", labelKey: "nav.customers" },
     { href: "/non-vat/purchases", labelKey: "nav.purchases" },

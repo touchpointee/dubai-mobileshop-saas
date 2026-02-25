@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
+import { ProductCategory } from "@/models/ProductCategory";
 
 export async function GET(
   _request: NextRequest,
@@ -39,8 +40,26 @@ export async function PUT(
   if (nameAr !== undefined) product.nameAr = nameAr ? String(nameAr).trim() : undefined;
   if (brand !== undefined) product.brand = brand ? String(brand).trim() : undefined;
   if (model !== undefined) product.model = model ? String(model).trim() : undefined;
-  if (category !== undefined) product.category = category ? String(category).trim() : undefined;
-  if (categoryId !== undefined) product.categoryId = categoryId && mongoose.Types.ObjectId.isValid(categoryId) ? categoryId : undefined;
+  if (categoryId !== undefined) {
+    product.categoryId = categoryId && mongoose.Types.ObjectId.isValid(categoryId) ? categoryId : undefined;
+    if (product.categoryId) {
+      const cat = await ProductCategory.findOne({ _id: product.categoryId, shopId }).lean();
+      if (cat) {
+        const parent = (cat as { parentId?: unknown }).parentId
+          ? await ProductCategory.findById((cat as { parentId: unknown }).parentId).lean()
+          : null;
+        product.category = parent
+          ? `${(parent as { name: string }).name} > ${(cat as { name: string }).name}`
+          : (cat as { name: string }).name;
+      } else {
+        product.category = category !== undefined && category ? String(category).trim() : undefined;
+      }
+    } else {
+      product.category = undefined;
+    }
+  } else if (category !== undefined) {
+    product.category = category ? String(category).trim() : undefined;
+  }
   if (dealerId !== undefined) product.dealerId = dealerId && mongoose.Types.ObjectId.isValid(dealerId) ? dealerId : undefined;
   if (typeof costPrice === "number") product.costPrice = costPrice;
   if (typeof sellPrice === "number") product.sellPrice = sellPrice;

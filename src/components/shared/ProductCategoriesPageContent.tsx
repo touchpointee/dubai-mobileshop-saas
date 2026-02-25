@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { swrFetcher } from "@/lib/swr-fetcher";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronRight, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -15,33 +16,46 @@ import { Label } from "@/components/ui/label";
 type ProductCategory = {
   _id: string;
   name: string;
-  nameAr?: string;
+  nameAr?: string | null;
   sortOrder: number;
+  parentId?: string | null;
+  parentName?: string | null;
 };
 
 const SWR_KEY = "/api/product-categories";
 
-const emptyForm = { name: "", nameAr: "", sortOrder: 0 };
+const emptyForm = { name: "", nameAr: "", sortOrder: 0, parentId: "" };
 
 export function ProductCategoriesPageContent() {
+  const t = useTranslations("pages");
   const { data: categories, isLoading } = useSWR<ProductCategory[]>(SWR_KEY, swrFetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ProductCategory | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  /** When adding: parent id for subcategory, or null for top-level. Not used when editing. */
+  const [addParentId, setAddParentId] = useState<string | null>(null);
 
-  function openAdd() {
+  const topLevelCategories = (categories ?? []).filter((c) => !c.parentId || c.parentId === "");
+  const selectedCategory = selectedCategoryId ? (categories ?? []).find((c) => String(c._id) === String(selectedCategoryId)) : null;
+  const subcategoriesOfSelected = (categories ?? []).filter((c) => String(c.parentId ?? "") === String(selectedCategoryId ?? ""));
+
+  function openAdd(parentId?: string) {
     setEditing(null);
-    setForm(emptyForm);
+    setAddParentId(parentId ? String(parentId).trim() || null : null);
+    setForm({ ...emptyForm, parentId: "" });
     setModalOpen(true);
   }
 
   function openEdit(c: ProductCategory) {
     setEditing(c);
+    setAddParentId(null);
     setForm({
       name: c.name,
       nameAr: c.nameAr ?? "",
       sortOrder: c.sortOrder ?? 0,
+      parentId: c.parentId ?? "",
     });
     setModalOpen(true);
   }
@@ -52,15 +66,26 @@ export function ProductCategoriesPageContent() {
     try {
       const url = editing ? `/api/product-categories/${editing._id}` : "/api/product-categories";
       const method = editing ? "PUT" : "POST";
-      const payload = editing
-        ? { ...form, sortOrder: Number(form.sortOrder) }
-        : { name: form.name.trim(), nameAr: form.nameAr?.trim() || undefined, sortOrder: Number(form.sortOrder) };
+      const body: Record<string, unknown> = editing
+        ? {
+            name: form.name.trim(),
+            nameAr: form.nameAr?.trim() || undefined,
+            sortOrder: Number(form.sortOrder),
+            parentId: form.parentId?.trim() || null,
+          }
+        : {
+            name: form.name.trim(),
+            nameAr: form.nameAr?.trim() || undefined,
+            sortOrder: Number(form.sortOrder),
+            parentId: addParentId?.trim() || undefined,
+          };
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
+        setAddParentId(null);
         setModalOpen(false);
         mutate(SWR_KEY);
       } else {
@@ -75,22 +100,40 @@ export function ProductCategoriesPageContent() {
   async function handleDelete(id: string) {
     if (!confirm("Remove this category? Products using it will keep the reference.")) return;
     const res = await fetch(`/api/product-categories/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
     if (res.ok) mutate(SWR_KEY);
+    else alert(data.error || "Error deleting category");
   }
 
   if (isLoading) return <PageSkeleton />;
 
-  const columns = [
-    { key: "name", header: "Name" },
+  const categoryListColumns = [
+    {
+      key: "name",
+      header: "Name",
+      render: (c: ProductCategory) => (
+        <button
+          type="button"
+          onClick={() => setSelectedCategoryId(String(c._id))}
+          className="flex w-full items-center gap-2 text-left font-medium text-teal-600 hover:text-teal-700 hover:underline"
+        >
+          {c.name}
+          <ChevronRight size={16} className="text-slate-400" />
+        </button>
+      ),
+    },
     {
       key: "nameAr",
       header: "Name (Arabic)",
       render: (c: ProductCategory) => <span className="text-slate-500">{c.nameAr || "—"}</span>,
     },
     {
-      key: "sortOrder",
-      header: "Order",
-      render: (c: ProductCategory) => <span className="text-slate-500">{c.sortOrder}</span>,
+      key: "subcount",
+      header: t("subcategory"),
+      render: (c: ProductCategory) => {
+        const count = (categories ?? []).filter((x) => String(x.parentId) === String(c._id)).length;
+        return <span className="text-slate-500">{count}</span>;
+      },
     },
     {
       key: "actions",
@@ -109,22 +152,96 @@ export function ProductCategoriesPageContent() {
     },
   ];
 
+  const subcategoryListColumns = [
+    { key: "name", header: "Name", render: (c: ProductCategory) => <span>{c.name}</span> },
+    { key: "nameAr", header: "Name (Arabic)", render: (c: ProductCategory) => <span className="text-slate-500">{c.nameAr || "—"}</span> },
+    { key: "sortOrder", header: "Order", render: (c: ProductCategory) => <span className="text-slate-500">{c.sortOrder}</span> },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "w-28",
+      render: (c: ProductCategory) => (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
+            <Pencil size={15} />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(c._id)}>
+            <Trash2 size={15} />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Categories" description="Product categories shared across VAT and Non-VAT">
-        <Button onClick={openAdd}>
-          <Plus size={16} className="mr-1.5" />
-          Add Category
-        </Button>
-      </PageHeader>
+      {selectedCategoryId && selectedCategory ? (
+        <>
+          <PageHeader
+            title={selectedCategory.name}
+            description={selectedCategory.nameAr ? `${t("subcategory")} — ${selectedCategory.nameAr}` : t("subcategory")}
+          >
+            <Button variant="outline" onClick={() => setSelectedCategoryId(null)}>
+              <ArrowLeft size={16} className="mr-1.5" />
+              {t("backToCategories")}
+            </Button>
+            <Button onClick={() => openAdd(selectedCategoryId ? String(selectedCategoryId) : undefined)}>
+              <Plus size={16} className="mr-1.5" />
+              {t("addSubcategory")}
+            </Button>
+          </PageHeader>
+          <div className="px-6 pb-6">
+            <DataTable
+              columns={subcategoryListColumns}
+              data={subcategoriesOfSelected}
+              emptyMessage="No subcategories yet. Click Add subcategory to add one."
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <PageHeader title="Categories" description="Click a category to view and manage its subcategories.">
+            <Button onClick={() => openAdd()}>
+              <Plus size={16} className="mr-1.5" />
+              {t("addCategory")}
+            </Button>
+          </PageHeader>
+          <div className="px-6 pb-6">
+            <DataTable
+              columns={categoryListColumns}
+              data={topLevelCategories}
+              emptyMessage="No categories yet. Add one to organize products."
+            />
+          </div>
+        </>
+      )}
 
-      <div className="px-6 pb-6">
-        <DataTable columns={columns} data={categories ?? []} emptyMessage="No categories yet. Add one to organize products." />
-      </div>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Category" : "Add Category"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Category" : addParentId ? t("addSubcategory") : t("addCategory")}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            {editing ? (
+              <div className="sm:col-span-2">
+                <Label htmlFor="cat-parent">{t("parentCategory")}</Label>
+                <select
+                  id="cat-parent"
+                  className="mt-1.5 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  value={form.parentId ? String(form.parentId) : ""}
+                  onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value || "" }))}
+                >
+                  <option value="">Top-level (no parent)</option>
+                  {topLevelCategories.filter((c) => String(c._id) !== String(editing._id)).map((c) => (
+                    <option key={String(c._id)} value={String(c._id)}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : addParentId ? (
+              <div className="sm:col-span-2">
+                <Label>{t("parentCategory")}</Label>
+                <p className="mt-1.5 text-sm text-slate-600">
+                  {selectedCategory?.name ?? addParentId}
+                </p>
+              </div>
+            ) : null}
             <div>
               <Label htmlFor="cat-name">Name *</Label>
               <Input id="cat-name" className="mt-1.5" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />

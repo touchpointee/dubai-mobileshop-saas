@@ -7,11 +7,13 @@ const productCategorySchema = new Schema(
     nameAr: { type: String },
     sortOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
+    parentId: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
   },
   { timestamps: true }
 );
 
 productCategorySchema.index({ shopId: 1, isActive: 1 });
+productCategorySchema.index({ shopId: 1, parentId: 1 });
 
 export const ProductCategory =
   models.ProductCategory ?? model("ProductCategory", productCategorySchema);

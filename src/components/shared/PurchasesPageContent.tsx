@@ -18,7 +18,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 
 type Dealer = { _id: string; name: string; phone?: string };
-type ProductCategory = { _id: string; name: string };
+type ProductCategory = { _id: string; name: string; parentId?: string | null; parentName?: string | null };
 type Product = {
   _id: string;
   name: string;
@@ -83,6 +83,21 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
   const productsList = Array.isArray(products) ? products : [];
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
+
+  const addProductTopLevel = (categories ?? []).filter((c) => !c.parentId);
+  const addProductCurrentCat = (categories ?? []).find((c) => c._id === addProductForm.categoryId);
+  const addProductSelectedParentId = !addProductCurrentCat ? "" : (addProductCurrentCat.parentId ?? addProductCurrentCat._id);
+  const addProductSelectedSubcategoryId = addProductCurrentCat?.parentId ? addProductForm.categoryId : "";
+  const addProductParentCategoryOptions = [
+    { value: "", label: t("noneOption") },
+    ...addProductTopLevel.map((c) => ({ value: c._id, label: c.name })),
+  ];
+  const addProductSubcategoryOptions = addProductSelectedParentId
+    ? [
+        { value: "", label: t("noneOption") },
+        ...(categories ?? []).filter((c) => c.parentId === addProductSelectedParentId).map((c) => ({ value: c._id, label: c.name })),
+      ]
+    : [{ value: "", label: t("noneOption") }];
 
   const [formOpen, setFormOpen] = useState(false);
   const [dealerId, setDealerId] = useState("");
@@ -836,17 +851,25 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
           </div>
           <div>
             <Label htmlFor="add-product-category">{tTables("category")}</Label>
-            <select
-              id="add-product-category"
-              className="mt-1.5 flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-              value={addProductForm.categoryId}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, categoryId: e.target.value }))}
-            >
-              <option value="">{t("noneOption")}</option>
-              {(categories ?? []).map((c) => (
-                <option key={c._id} value={c._id}>{c.name}</option>
-              ))}
-            </select>
+            <div className="mt-1.5">
+              <SearchableSelect
+                options={addProductParentCategoryOptions}
+                value={addProductSelectedParentId}
+                onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v }))}
+                placeholder={t("noneOption")}
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="add-product-subcategory">{t("subcategory")}</Label>
+            <div className="mt-1.5">
+              <SearchableSelect
+                options={addProductSubcategoryOptions}
+                value={addProductSelectedSubcategoryId}
+                onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v || addProductSelectedParentId }))}
+                placeholder={t("noneOption")}
+              />
+            </div>
           </div>
           <div>
             <Label htmlFor="add-product-dealer">{tTables("dealer")}</Label>

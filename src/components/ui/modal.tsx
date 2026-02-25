@@ -12,6 +12,7 @@ export function Modal({
   children,
   className,
   size = "md",
+  zIndex,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,6 +21,8 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Use a higher value (e.g. 100) when this modal is opened on top of another modal */
+  zIndex?: number;
 }) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
@@ -49,7 +52,10 @@ export function Modal({
   const isFullView = size === "2xl";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2">
+    <div
+      className="fixed inset-0 flex items-center justify-center p-2"
+      style={{ zIndex: zIndex ?? 50 }}
+    >
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
         className={cn(

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
+import { ProductCategory } from "@/models/ProductCategory";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
 import type { Channel } from "@/lib/constants";
@@ -85,8 +86,22 @@ export async function POST(request: NextRequest) {
   if (nameAr?.trim()) productData.nameAr = nameAr.trim();
   if (brand?.trim()) productData.brand = brand.trim();
   if (model?.trim()) productData.model = model.trim();
-  if (category?.trim()) productData.category = category.trim();
-  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) productData.categoryId = new mongoose.Types.ObjectId(categoryId);
+  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
+    productData.categoryId = new mongoose.Types.ObjectId(categoryId);
+    const cat = await ProductCategory.findOne({ _id: categoryId, shopId }).lean();
+    if (cat) {
+      const parent = (cat as { parentId?: unknown }).parentId
+        ? await ProductCategory.findById((cat as { parentId: unknown }).parentId).lean()
+        : null;
+      productData.category = parent
+        ? `${(parent as { name: string }).name} > ${(cat as { name: string }).name}`
+        : (cat as { name: string }).name;
+    } else if (category?.trim()) {
+      productData.category = category.trim();
+    }
+  } else if (category?.trim()) {
+    productData.category = category.trim();
+  }
   if (dealerId && mongoose.Types.ObjectId.isValid(dealerId)) productData.dealerId = new mongoose.Types.ObjectId(dealerId);
   if (minSell != null) productData.minSellPrice = minSell;
   if (barcode != null && typeof barcode === "string" && barcode.trim()) {

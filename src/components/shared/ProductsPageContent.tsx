@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { swrFetcher } from "@/lib/swr-fetcher";
@@ -12,6 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 import { BarcodeLabel } from "@/components/barcode/BarcodeLabel";
@@ -36,7 +37,7 @@ type Product = {
   barcode?: string;
 };
 
-type ProductCategory = { _id: string; name: string; nameAr?: string; sortOrder: number };
+type ProductCategory = { _id: string; name: string; nameAr?: string; sortOrder: number; parentId?: string | null; parentName?: string | null };
 type Dealer = { _id: string; name: string; phone?: string };
 
 const emptyForm = {
@@ -85,15 +86,35 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const [saving, setSaving] = useState(false);
   const [generatingBarcode, setGeneratingBarcode] = useState(false);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
+  const [showAddCategoryInline, setShowAddCategoryInline] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryParentId, setNewCategoryParentId] = useState("");
+  const addCategoryParentIdRef = useRef<string | null>(null);
+  const [addCategorySaving, setAddCategorySaving] = useState(false);
+  const [addDealerModalOpen, setAddDealerModalOpen] = useState(false);
+  const [addDealerName, setAddDealerName] = useState("");
+  const [addDealerPhone, setAddDealerPhone] = useState("");
+  const [addDealerSaving, setAddDealerSaving] = useState(false);
 
   function openAdd() {
     setEditing(null);
     setForm({ ...emptyForm });
+    setShowAddCategoryInline(false);
+    setNewCategoryName("");
+    setNewCategoryParentId("");
+    addCategoryParentIdRef.current = null;
+    setAddDealerModalOpen(false);
+    setAddDealerName("");
+    setAddDealerPhone("");
     setModalOpen(true);
   }
 
   function openEdit(p: Product) {
     setEditing(p);
+    setShowAddCategoryInline(false);
+    setNewCategoryName("");
+    setNewCategoryParentId("");
+    addCategoryParentIdRef.current = null;
     const dealerId = typeof p.dealerId === "object" && p.dealerId ? p.dealerId._id : p.dealerId;
     setForm({
       name: p.name,
@@ -158,6 +179,95 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
     if (!confirm(tErrors("deleteProductConfirm"))) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (res.ok) mutate(swrKey);
+  }
+
+  const topLevelCategories = (categories ?? []).filter((c) => !c.parentId);
+  const currentCategory = (categories ?? []).find((c) => c._id === form.categoryId);
+  const selectedParentId = !currentCategory ? "" : (currentCategory.parentId ?? currentCategory._id);
+  const selectedSubcategoryId = currentCategory?.parentId ? form.categoryId : "";
+
+  const parentCategoryOptions = [
+    { value: "", label: t("noneOption") },
+    ...topLevelCategories.map((c) => ({ value: c._id, label: c.name })),
+  ];
+  const subcategoryOptions = selectedParentId
+    ? [
+        { value: "", label: t("noneOption") },
+        ...(categories ?? []).filter((c) => c.parentId === selectedParentId).map((c) => ({ value: c._id, label: c.name })),
+      ]
+    : [{ value: "", label: t("noneOption") }];
+
+  const parentCategoryOptionsForAdd = [
+    { value: "", label: t("noneOption") },
+    ...topLevelCategories.map((c) => ({ value: c._id, label: c.name })),
+  ];
+
+  async function handleAddCategoryInline(e?: React.FormEvent) {
+    e?.preventDefault();
+    const name = newCategoryName.trim();
+    if (!name) return;
+    const parentIdToSend = addCategoryParentIdRef.current ?? (newCategoryParentId || undefined);
+    setAddCategorySaving(true);
+    try {
+      const res = await fetch("/api/product-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          parentId: parentIdToSend,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data._id) {
+        mutate("/api/product-categories");
+        setForm((f) => ({ ...f, categoryId: data._id }));
+        setNewCategoryName("");
+        setNewCategoryParentId("");
+        addCategoryParentIdRef.current = null;
+        setShowAddCategoryInline(false);
+      } else {
+        alert(data.error || tErrors("errorAddingCategory"));
+      }
+    } finally {
+      setAddCategorySaving(false);
+    }
+  }
+
+  const dealerOptions = [
+    { value: "", label: t("noneOption") },
+    ...(dealers ?? []).map((d) => ({
+      value: d._id,
+      label: d.phone ? `${d.name} — ${d.phone}` : d.name,
+    })),
+  ];
+
+  async function handleAddDealerSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = addDealerName.trim();
+    if (!name) {
+      alert(tErrors("errorSavingDealer") || "Name is required");
+      return;
+    }
+    setAddDealerSaving(true);
+    try {
+      const res = await fetch("/api/dealers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone: addDealerPhone.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data._id) {
+        mutate("/api/dealers");
+        setForm((f) => ({ ...f, dealerId: data._id }));
+        setAddDealerModalOpen(false);
+        setAddDealerName("");
+        setAddDealerPhone("");
+      } else {
+        alert(data.error || tErrors("errorSavingDealer"));
+      }
+    } finally {
+      setAddDealerSaving(false);
+    }
   }
 
   async function handleGenerateBarcode() {
@@ -262,6 +372,35 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         <DataTable columns={columns} data={products ?? []} emptyMessage={t("emptyProductsYet")} />
       </div>
 
+      {/* Add dealer modal (from product form) - higher z-index so it appears above product modal */}
+      <Modal open={addDealerModalOpen} onClose={() => setAddDealerModalOpen(false)} title={tModals("addDealer")} zIndex={100}>
+        <form onSubmit={handleAddDealerSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="add-dealer-name">{tForms("name")} *</Label>
+            <Input
+              id="add-dealer-name"
+              className="mt-1.5"
+              value={addDealerName}
+              onChange={(e) => setAddDealerName(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="add-dealer-phone">{tForms("phone")}</Label>
+            <Input
+              id="add-dealer-phone"
+              className="mt-1.5"
+              value={addDealerPhone}
+              onChange={(e) => setAddDealerPhone(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <Button type="button" variant="outline" onClick={() => setAddDealerModalOpen(false)}>{tCommon("cancel")}</Button>
+            <Button type="submit" disabled={addDealerSaving}>{addDealerSaving ? tCommon("saving") : tCommon("save")}</Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Add / Edit Product Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? tModals("editProduct") : tModals("addProduct")}>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -275,40 +414,90 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
               <Input id="pr-nameAr" className="mt-1.5" value={form.nameAr} onChange={(e) => setForm((f) => ({ ...f, nameAr: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="pr-brand">{tTables("brand")}</Label>
-              <Input id="pr-brand" className="mt-1.5" value={form.brand} onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))} />
-            </div>
-            <div>
-              <Label htmlFor="pr-model">{t("model")}</Label>
-              <Input id="pr-model" className="mt-1.5" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} />
-            </div>
-            <div>
               <Label htmlFor="pr-category">{tTables("category")}</Label>
-              <select
-                id="pr-category"
-                className="mt-1.5 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                value={form.categoryId}
-                onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-              >
-                <option value="">{t("noneOption")}</option>
-                {(categories ?? []).map((c) => (
-                  <option key={c._id} value={c._id}>{c.name}</option>
-                ))}
-              </select>
+              <div className="mt-1.5">
+                <SearchableSelect
+                  options={parentCategoryOptions}
+                  value={selectedParentId}
+                  onChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+                  placeholder={t("noneOption")}
+                  addButtonLabel={t("addCategory")}
+                  onAdd={() => { addCategoryParentIdRef.current = null; setNewCategoryParentId(""); setShowAddCategoryInline(true); }}
+                />
+              </div>
+              <div className="mt-2">
+                <Label htmlFor="pr-subcategory" className="text-slate-600">{t("subcategory")}</Label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    options={subcategoryOptions}
+                    value={selectedSubcategoryId}
+                    onChange={(v) => setForm((f) => ({ ...f, categoryId: v || selectedParentId }))}
+                    placeholder={selectedParentId ? t("noneOption") : t("selectCategoryFirst")}
+                    addButtonLabel={selectedParentId ? t("addSubcategory") : undefined}
+                    onAdd={selectedParentId ? () => { addCategoryParentIdRef.current = selectedParentId; setNewCategoryParentId(selectedParentId); setShowAddCategoryInline(true); } : undefined}
+                  />
+                </div>
+              </div>
+              {showAddCategoryInline && (
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <Label className="text-xs text-slate-500">{t("parentCategory")}</Label>
+                    <div className="mt-1">
+                      <SearchableSelect
+                        options={parentCategoryOptionsForAdd}
+                        value={newCategoryParentId}
+                        onChange={setNewCategoryParentId}
+                        placeholder={t("noneOption")}
+                        className="min-w-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCategoryInline();
+                        }
+                      }}
+                      placeholder={t("newCategory")}
+                      className="flex-1"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={addCategorySaving || !newCategoryName.trim()}
+                      onClick={() => handleAddCategoryInline()}
+                    >
+                      {addCategorySaving ? tCommon("saving") : tCommon("add")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { addCategoryParentIdRef.current = null; setShowAddCategoryInline(false); setNewCategoryName(""); setNewCategoryParentId(""); }}
+                    >
+                      {tCommon("cancel")}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="pr-dealer">{tTables("dealer")}</Label>
-              <select
-                id="pr-dealer"
-                className="mt-1.5 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                value={form.dealerId}
-                onChange={(e) => setForm((f) => ({ ...f, dealerId: e.target.value }))}
-              >
-                <option value="">{t("noneOption")}</option>
-                {(dealers ?? []).map((d) => (
-                  <option key={d._id} value={d._id}>{d.name}{d.phone ? ` — ${d.phone}` : ""}</option>
-                ))}
-              </select>
+              <div className="mt-1.5">
+                <SearchableSelect
+                  options={dealerOptions}
+                  value={form.dealerId}
+                  onChange={(v) => setForm((f) => ({ ...f, dealerId: v }))}
+                  placeholder={t("selectDealer")}
+                  addButtonLabel={t("addDealer")}
+                  onAdd={() => setAddDealerModalOpen(true)}
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="pr-cost">{tForms("costPrice")} *</Label>
