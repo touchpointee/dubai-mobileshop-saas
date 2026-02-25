@@ -90,12 +90,13 @@ export async function POST(request: NextRequest) {
     productData.categoryId = new mongoose.Types.ObjectId(categoryId);
     const cat = await ProductCategory.findOne({ _id: categoryId, shopId }).lean();
     if (cat) {
-      const parent = (cat as { parentId?: unknown }).parentId
-        ? await ProductCategory.findById((cat as { parentId: unknown }).parentId).lean()
+      const catParentId = (cat as unknown as { parentId?: unknown }).parentId;
+      const parent = catParentId
+        ? await ProductCategory.findById(catParentId).lean()
         : null;
       productData.category = parent
-        ? `${(parent as { name: string }).name} > ${(cat as { name: string }).name}`
-        : (cat as { name: string }).name;
+        ? `${(parent as unknown as { name: string }).name} > ${(cat as unknown as { name: string }).name}`
+        : (cat as unknown as { name: string }).name;
     } else if (category?.trim()) {
       productData.category = category.trim();
     }

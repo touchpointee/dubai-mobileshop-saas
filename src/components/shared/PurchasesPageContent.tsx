@@ -85,19 +85,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
 
   const addProductTopLevel = (categories ?? []).filter((c) => !c.parentId);
-  const addProductCurrentCat = (categories ?? []).find((c) => c._id === addProductForm.categoryId);
-  const addProductSelectedParentId = !addProductCurrentCat ? "" : (addProductCurrentCat.parentId ?? addProductCurrentCat._id);
-  const addProductSelectedSubcategoryId = addProductCurrentCat?.parentId ? addProductForm.categoryId : "";
-  const addProductParentCategoryOptions = [
-    { value: "", label: t("noneOption") },
-    ...addProductTopLevel.map((c) => ({ value: c._id, label: c.name })),
-  ];
-  const addProductSubcategoryOptions = addProductSelectedParentId
-    ? [
-        { value: "", label: t("noneOption") },
-        ...(categories ?? []).filter((c) => c.parentId === addProductSelectedParentId).map((c) => ({ value: c._id, label: c.name })),
-      ]
-    : [{ value: "", label: t("noneOption") }];
 
   const [formOpen, setFormOpen] = useState(false);
   const [dealerId, setDealerId] = useState("");
@@ -115,6 +102,20 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [addProductForRowIndex, setAddProductForRowIndex] = useState<number | null>(null);
   const [addProductForm, setAddProductForm] = useState({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
   const [addProductSaving, setAddProductSaving] = useState(false);
+
+  const addProductCurrentCat = (categories ?? []).find((c) => c._id === addProductForm.categoryId);
+  const addProductSelectedParentId = !addProductCurrentCat ? "" : (addProductCurrentCat.parentId ?? addProductCurrentCat._id);
+  const addProductSelectedSubcategoryId = addProductCurrentCat?.parentId ? addProductForm.categoryId : "";
+  const addProductParentCategoryOptions = [
+    { value: "", label: t("noneOption") },
+    ...addProductTopLevel.map((c) => ({ value: c._id, label: c.name })),
+  ];
+  const addProductSubcategoryOptions = addProductSelectedParentId
+    ? [
+        { value: "", label: t("noneOption") },
+        ...(categories ?? []).filter((c) => c.parentId === addProductSelectedParentId).map((c) => ({ value: c._id, label: c.name })),
+      ]
+    : [{ value: "", label: t("noneOption") }];
   const [scanTargetRowIndex, setScanTargetRowIndex] = useState<number | null>(null);
   const [scanInputValue, setScanInputValue] = useState("");
   const imeiInputRefs = useRef<(HTMLInputElement | null)[][]>([]);
