@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
-import { ProductCategory } from "@/models/ProductCategory";
+import { getCategoryPathDisplayString } from "@/lib/category-path";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
 import type { Channel } from "@/lib/constants";
@@ -88,15 +88,9 @@ export async function POST(request: NextRequest) {
   if (model?.trim()) productData.model = model.trim();
   if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
     productData.categoryId = new mongoose.Types.ObjectId(categoryId);
-    const cat = await ProductCategory.findOne({ _id: categoryId, shopId }).lean();
-    if (cat) {
-      const catParentId = (cat as unknown as { parentId?: unknown }).parentId;
-      const parent = catParentId
-        ? await ProductCategory.findById(catParentId).lean()
-        : null;
-      productData.category = parent
-        ? `${(parent as unknown as { name: string }).name} > ${(cat as unknown as { name: string }).name}`
-        : (cat as unknown as { name: string }).name;
+    const pathDisplay = await getCategoryPathDisplayString(categoryId, shopId);
+    if (pathDisplay) {
+      productData.category = pathDisplay;
     } else if (category?.trim()) {
       productData.category = category.trim();
     }

@@ -62,9 +62,6 @@ export async function POST(request: NextRequest) {
     if (!parent) {
       return Response.json({ error: "Parent category not found" }, { status: 400 });
     }
-    if ((parent as { parentId?: unknown }).parentId != null) {
-      return Response.json({ error: "Parent must be a top-level category" }, { status: 400 });
-    }
     parentIdObj = new mongoose.Types.ObjectId(bodyParentId);
   }
 

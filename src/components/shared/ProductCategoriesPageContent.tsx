@@ -34,12 +34,63 @@ export function ProductCategoriesPageContent() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  /** Breadcrumb of category ids we've drilled through. Empty when viewing top-level or direct children of a top-level category. */
+  const [breadcrumbIds, setBreadcrumbIds] = useState<string[]>([]);
   /** When adding: parent id for subcategory, or null for top-level. Not used when editing. */
   const [addParentId, setAddParentId] = useState<string | null>(null);
 
   const topLevelCategories = (categories ?? []).filter((c) => !c.parentId || c.parentId === "");
   const selectedCategory = selectedCategoryId ? (categories ?? []).find((c) => String(c._id) === String(selectedCategoryId)) : null;
   const subcategoriesOfSelected = (categories ?? []).filter((c) => String(c.parentId ?? "") === String(selectedCategoryId ?? ""));
+
+  /** Get path of category ids from root to the given category (inclusive). */
+  function getPathFromRoot(catId: string): string[] {
+    const list = categories ?? [];
+    const byId = new Map<string, ProductCategory>();
+    for (const c of list) byId.set(String(c._id), c);
+    const path: string[] = [];
+    let currentId: string | null = catId;
+    const seen = new Set<string>();
+    while (currentId && !seen.has(currentId)) {
+      seen.add(currentId);
+      const node = byId.get(currentId);
+      if (!node) break;
+      path.unshift(currentId);
+      currentId = node.parentId ? String(node.parentId) : null;
+    }
+    return path;
+  }
+
+  /** Get all descendant category ids (recursive). */
+  function getDescendantIds(catId: string): Set<string> {
+    const list = categories ?? [];
+    const descendants = new Set<string>();
+    let layer = list.filter((c) => String(c.parentId ?? "") === String(catId)).map((c) => c._id);
+    while (layer.length) {
+      for (const id of layer) {
+        descendants.add(String(id));
+      }
+      layer = list.filter((c) => layer.some((id) => String(id) === String(c.parentId ?? ""))).map((c) => c._id);
+    }
+    return descendants;
+  }
+
+  function handleBack() {
+    if (breadcrumbIds.length > 0) {
+      const next = [...breadcrumbIds];
+      const popped = next.pop();
+      setBreadcrumbIds(next);
+      setSelectedCategoryId(popped ?? null);
+    } else {
+      setSelectedCategoryId(null);
+    }
+  }
+
+  function drillInto(c: ProductCategory) {
+    if (!selectedCategoryId) return;
+    setBreadcrumbIds((prev) => [...prev, selectedCategoryId]);
+    setSelectedCategoryId(c._id);
+  }
 
   function openAdd(parentId?: string) {
     setEditing(null);
@@ -153,7 +204,21 @@ export function ProductCategoriesPageContent() {
   ];
 
   const subcategoryListColumns = [
-    { key: "name", header: "Name", render: (c: ProductCategory) => <span>{c.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (c: ProductCategory) => (
+        <button
+          type="button"
+          onClick={() => drillInto(c)}
+          className="flex w-full items-center gap-2 text-left font-medium text-teal-600 hover:text-teal-700 hover:underline"
+          title="Open to view or add subcategories"
+        >
+          {c.name}
+          <ChevronRight size={16} className="text-slate-400" />
+        </button>
+      ),
+    },
     { key: "nameAr", header: "Name (Arabic)", render: (c: ProductCategory) => <span className="text-slate-500">{c.nameAr || "—"}</span> },
     { key: "sortOrder", header: "Order", render: (c: ProductCategory) => <span className="text-slate-500">{c.sortOrder}</span> },
     {
@@ -179,11 +244,17 @@ export function ProductCategoriesPageContent() {
         <>
           <PageHeader
             title={selectedCategory.name}
-            description={selectedCategory.nameAr ? `${t("subcategory")} — ${selectedCategory.nameAr}` : t("subcategory")}
+            description={
+              breadcrumbIds.length > 0
+                ? `Categories › ${[...breadcrumbIds, selectedCategoryId].map((id) => (categories ?? []).find((c) => String(c._id) === id)?.name ?? id).join(" › ")}`
+                : selectedCategory.nameAr
+                  ? `${t("subcategory")} — ${selectedCategory.nameAr}`
+                  : t("subcategory")
+            }
           >
-            <Button variant="outline" onClick={() => setSelectedCategoryId(null)}>
+            <Button variant="outline" onClick={handleBack}>
               <ArrowLeft size={16} className="mr-1.5" />
-              {t("backToCategories")}
+              {breadcrumbIds.length > 0 ? t("backToCategories") : t("backToCategories")}
             </Button>
             <Button onClick={() => openAdd(selectedCategoryId ? String(selectedCategoryId) : undefined)}>
               <Plus size={16} className="mr-1.5" />
@@ -229,9 +300,23 @@ export function ProductCategoriesPageContent() {
                   onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value || "" }))}
                 >
                   <option value="">Top-level (no parent)</option>
-                  {topLevelCategories.filter((c) => String(c._id) !== String(editing._id)).map((c) => (
-                    <option key={String(c._id)} value={String(c._id)}>{c.name}</option>
-                  ))}
+                  {(() => {
+                    const list = categories ?? [];
+                    const excluded = new Set([String(editing._id), ...getDescendantIds(editing._id)]);
+                    const withDepth = list
+                      .filter((c) => !excluded.has(String(c._id)))
+                      .map((c) => ({ c, path: getPathFromRoot(c._id), depth: getPathFromRoot(c._id).length - 1 }));
+                    withDepth.sort((a, b) => {
+                      const pathA = a.path.join("\0");
+                      const pathB = b.path.join("\0");
+                      return pathA.localeCompare(pathB) || a.c.name.localeCompare(b.c.name);
+                    });
+                    return withDepth.map(({ c, depth }) => (
+                      <option key={String(c._id)} value={String(c._id)}>
+                        {"\u00A0".repeat(Math.max(0, depth * 2))}{c.name}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </div>
             ) : addParentId ? (

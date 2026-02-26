@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
-import { ProductCategory } from "@/models/ProductCategory";
+import { getCategoryPathDisplayString } from "@/lib/category-path";
 
 export async function GET(
   _request: NextRequest,
@@ -43,15 +43,12 @@ export async function PUT(
   if (categoryId !== undefined) {
     product.categoryId = categoryId && mongoose.Types.ObjectId.isValid(categoryId) ? categoryId : undefined;
     if (product.categoryId) {
-      const cat = await ProductCategory.findOne({ _id: product.categoryId, shopId }).lean();
-      if (cat) {
-        const catParentId = (cat as unknown as { parentId?: unknown }).parentId;
-        const parent = catParentId
-          ? await ProductCategory.findById(catParentId).lean()
-          : null;
-        product.category = parent
-          ? `${(parent as unknown as { name: string }).name} > ${(cat as unknown as { name: string }).name}`
-          : (cat as unknown as { name: string }).name;
+      const pathDisplay = await getCategoryPathDisplayString(
+        String(product.categoryId),
+        shopId
+      );
+      if (pathDisplay) {
+        product.category = pathDisplay;
       } else {
         product.category = category !== undefined && category ? String(category).trim() : undefined;
       }

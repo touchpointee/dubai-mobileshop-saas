@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { CategoryCascadeSelect } from "@/components/shared/CategoryCascadeSelect";
 import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 import { BarcodeLabel } from "@/components/barcode/BarcodeLabel";
@@ -181,32 +182,11 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
     if (res.ok) mutate(swrKey);
   }
 
-  const topLevelCategories = (categories ?? []).filter((c) => !c.parentId);
-  const currentCategory = (categories ?? []).find((c) => c._id === form.categoryId);
-  const selectedParentId = !currentCategory ? "" : (currentCategory.parentId ?? currentCategory._id);
-  const selectedSubcategoryId = currentCategory?.parentId ? form.categoryId : "";
-
-  const parentCategoryOptions = [
-    { value: "", label: t("noneOption") },
-    ...topLevelCategories.map((c) => ({ value: c._id, label: c.name })),
-  ];
-  const subcategoryOptions = selectedParentId
-    ? [
-        { value: "", label: t("noneOption") },
-        ...(categories ?? []).filter((c) => c.parentId === selectedParentId).map((c) => ({ value: c._id, label: c.name })),
-      ]
-    : [{ value: "", label: t("noneOption") }];
-
-  const parentCategoryOptionsForAdd = [
-    { value: "", label: t("noneOption") },
-    ...topLevelCategories.map((c) => ({ value: c._id, label: c.name })),
-  ];
-
   async function handleAddCategoryInline(e?: React.FormEvent) {
     e?.preventDefault();
     const name = newCategoryName.trim();
     if (!name) return;
-    const parentIdToSend = addCategoryParentIdRef.current ?? (newCategoryParentId || undefined);
+    const parentIdToSend = addCategoryParentIdRef.current ?? (newCategoryParentId || form.categoryId || undefined);
     setAddCategorySaving(true);
     try {
       const res = await fetch("/api/product-categories", {
@@ -415,43 +395,27 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
             </div>
             <div>
               <Label htmlFor="pr-category">{tTables("category")}</Label>
-              <div className="mt-1.5">
-                <SearchableSelect
-                  options={parentCategoryOptions}
-                  value={selectedParentId}
-                  onChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
-                  placeholder={t("noneOption")}
-                  addButtonLabel={t("addCategory")}
-                  onAdd={() => { addCategoryParentIdRef.current = null; setNewCategoryParentId(""); setShowAddCategoryInline(true); }}
-                />
-              </div>
-              <div className="mt-2">
-                <Label htmlFor="pr-subcategory" className="text-slate-600">{t("subcategory")}</Label>
-                <div className="mt-1.5">
-                  <SearchableSelect
-                    options={subcategoryOptions}
-                    value={selectedSubcategoryId}
-                    onChange={(v) => setForm((f) => ({ ...f, categoryId: v || selectedParentId }))}
-                    placeholder={selectedParentId ? t("noneOption") : t("selectCategoryFirst")}
-                    addButtonLabel={selectedParentId ? t("addSubcategory") : undefined}
-                    onAdd={selectedParentId ? () => { addCategoryParentIdRef.current = selectedParentId; setNewCategoryParentId(selectedParentId); setShowAddCategoryInline(true); } : undefined}
-                  />
-                </div>
-              </div>
+              <CategoryCascadeSelect
+                categories={categories ?? []}
+                value={form.categoryId}
+                onChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+                placeholder={t("noneOption")}
+                noneLabel={t("noneOption")}
+                nextLevelLabel={t("subcategory")}
+                addButtonLabel={t("addCategory")}
+                onAddCategory={() => {
+                  addCategoryParentIdRef.current = form.categoryId || null;
+                  setNewCategoryParentId(form.categoryId || "");
+                  setShowAddCategoryInline(true);
+                }}
+              />
               {showAddCategoryInline && (
                 <div className="mt-2 space-y-2">
-                  <div>
-                    <Label className="text-xs text-slate-500">{t("parentCategory")}</Label>
-                    <div className="mt-1">
-                      <SearchableSelect
-                        options={parentCategoryOptionsForAdd}
-                        value={newCategoryParentId}
-                        onChange={setNewCategoryParentId}
-                        placeholder={t("noneOption")}
-                        className="min-w-0"
-                      />
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-500">
+                    {form.categoryId
+                      ? `${t("parentCategory")}: ${(categories ?? []).find((c) => c._id === form.categoryId)?.name ?? form.categoryId}`
+                      : t("parentCategory") + ": " + t("noneOption")}
+                  </p>
                   <div className="flex gap-2">
                     <Input
                       value={newCategoryName}

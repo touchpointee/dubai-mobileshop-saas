@@ -69,8 +69,24 @@ export async function PUT(
       if (!parent) {
         return Response.json({ error: "Parent category not found" }, { status: 400 });
       }
-      if ((parent as { parentId?: unknown }).parentId != null) {
-        return Response.json({ error: "Parent must be a top-level category" }, { status: 400 });
+      // Cycle check: new parent must not be a descendant of the category being edited
+      type CatLean = { parentId?: unknown };
+      let ancestorId: string | null = (parent as CatLean).parentId != null
+        ? String((parent as CatLean).parentId)
+        : null;
+      while (ancestorId) {
+        if (ancestorId === id) {
+          return Response.json(
+            { error: "Parent cannot be a descendant of this category (would create a cycle)" },
+            { status: 400 }
+          );
+        }
+        const ancestor = await ProductCategory.findOne(
+          { _id: ancestorId, shopId, isActive: true },
+          { parentId: 1 }
+        ).lean();
+        const ancParent = ancestor ? (ancestor as unknown as CatLean).parentId : null;
+        ancestorId = ancParent != null ? String(ancParent) : null;
       }
       cat.parentId = new mongoose.Types.ObjectId(bodyParentId);
     }

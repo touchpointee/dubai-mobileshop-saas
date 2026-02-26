@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { CategoryCascadeSelect } from "@/components/shared/CategoryCascadeSelect";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 
@@ -84,8 +85,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const productsList = Array.isArray(products) ? products : [];
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
 
-  const addProductTopLevel = (categories ?? []).filter((c) => !c.parentId);
-
   const [formOpen, setFormOpen] = useState(false);
   const [dealerId, setDealerId] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -103,19 +102,6 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [addProductForm, setAddProductForm] = useState({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
   const [addProductSaving, setAddProductSaving] = useState(false);
 
-  const addProductCurrentCat = (categories ?? []).find((c) => c._id === addProductForm.categoryId);
-  const addProductSelectedParentId = !addProductCurrentCat ? "" : (addProductCurrentCat.parentId ?? addProductCurrentCat._id);
-  const addProductSelectedSubcategoryId = addProductCurrentCat?.parentId ? addProductForm.categoryId : "";
-  const addProductParentCategoryOptions = [
-    { value: "", label: t("noneOption") },
-    ...addProductTopLevel.map((c) => ({ value: c._id, label: c.name })),
-  ];
-  const addProductSubcategoryOptions = addProductSelectedParentId
-    ? [
-        { value: "", label: t("noneOption") },
-        ...(categories ?? []).filter((c) => c.parentId === addProductSelectedParentId).map((c) => ({ value: c._id, label: c.name })),
-      ]
-    : [{ value: "", label: t("noneOption") }];
   const [scanTargetRowIndex, setScanTargetRowIndex] = useState<number | null>(null);
   const [scanInputValue, setScanInputValue] = useState("");
   const imeiInputRefs = useRef<(HTMLInputElement | null)[][]>([]);
@@ -852,25 +838,14 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
           </div>
           <div>
             <Label htmlFor="add-product-category">{tTables("category")}</Label>
-            <div className="mt-1.5">
-              <SearchableSelect
-                options={addProductParentCategoryOptions}
-                value={addProductSelectedParentId}
-                onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v }))}
-                placeholder={t("noneOption")}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="add-product-subcategory">{t("subcategory")}</Label>
-            <div className="mt-1.5">
-              <SearchableSelect
-                options={addProductSubcategoryOptions}
-                value={addProductSelectedSubcategoryId}
-                onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v || addProductSelectedParentId }))}
-                placeholder={t("noneOption")}
-              />
-            </div>
+            <CategoryCascadeSelect
+              categories={categories ?? []}
+              value={addProductForm.categoryId}
+              onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v }))}
+              placeholder={t("noneOption")}
+              noneLabel={t("noneOption")}
+              nextLevelLabel={t("subcategory")}
+            />
           </div>
           <div>
             <Label htmlFor="add-product-dealer">{tTables("dealer")}</Label>
