@@ -28,10 +28,10 @@ export function BarcodeLabel({
     try {
       JsBarcode(svgRef.current, barcode, {
         format: "CODE128",
-        width: 2,
-        height: 50,
+        width: 1.2,
+        height: 36,
         displayValue: true,
-        fontSize: 14,
+        fontSize: 10,
       });
     } catch {
       // Invalid barcode string - ignore
@@ -43,7 +43,7 @@ export function BarcodeLabel({
     documentTitle: `Barcode-${barcode}`,
     onAfterPrint: onPrintComplete,
     pageStyle: `
-      @page { size: 50mm 30mm; margin: 2mm; }
+      @page { size: 40mm 25mm; margin: 2mm; }
       @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     `,
   });
@@ -61,29 +61,28 @@ export function BarcodeLabel({
 
   return (
     <>
+      {/* Printable area: barcode + number only for small thermal printers */}
       <div
         ref={ref}
-        className="bg-white p-3 text-black border border-slate-200 rounded-lg"
+        className="bg-white p-2 text-black border border-slate-200 rounded-lg"
         style={{
-          width: "50mm",
-          minHeight: "30mm",
+          width: "40mm",
+          minHeight: "25mm",
           fontFamily: "system-ui, sans-serif",
-          fontSize: "12px",
         }}
       >
-        {productName && (
-          <div className="font-semibold text-sm truncate mb-1" style={{ maxWidth: "46mm" }}>
-            {productName}
-          </div>
-        )}
-        <div className="flex justify-center my-2">
+        <div className="flex justify-center items-center flex-1 min-h-0">
           <svg ref={svgRef} />
         </div>
-        <div className="text-center text-xs text-slate-600 font-mono">{barcode}</div>
-        {price != null && (
-          <div className="text-center font-semibold text-sm mt-1">{formatCurrency(price)}</div>
-        )}
+        <div className="text-center text-[10px] text-slate-700 font-mono mt-0.5">{barcode}</div>
       </div>
+      {/* Optional on-screen caption (not printed) */}
+      {(productName != null || price != null) && (
+        <div className="mt-2 text-center text-xs text-slate-500 print:hidden">
+          {productName && <div className="font-medium truncate max-w-[40mm] mx-auto">{productName}</div>}
+          {price != null && <div className="mt-0.5">{formatCurrency(price)}</div>}
+        </div>
+      )}
       {trigger(handlePrintClick)}
     </>
   );

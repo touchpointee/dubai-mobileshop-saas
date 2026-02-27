@@ -4,6 +4,7 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { getCategoryPathDisplayString } from "@/lib/category-path";
+import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
 import type { Channel } from "@/lib/constants";
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest) {
   if (barcode != null && typeof barcode === "string" && barcode.trim()) {
     productData.barcode = barcode.trim();
   } else if (!requiresImeiVal) {
-    productData.barcode = `BC-${productId}`;
+    productData.barcode = await generateUniqueBarcodeForShop(async (code) => {
+      const existing = await Product.findOne({ shopId, barcode: code });
+      return !!existing;
+    });
   }
   
   // Use collection.insertOne directly to ensure id is included (bypasses Mongoose schema issues)

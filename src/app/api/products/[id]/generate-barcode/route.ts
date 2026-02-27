@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
+import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 
 export async function POST(
   _request: NextRequest,
@@ -20,7 +21,10 @@ export async function POST(
   if (product.requiresImei) {
     return Response.json({ error: "IMEI products use IMEI as barcode" }, { status: 400 });
   }
-  const barcode = `BC-${product.id ?? product._id.toString()}`;
+  const barcode = await generateUniqueBarcodeForShop(async (code) => {
+    const existing = await Product.findOne({ shopId, barcode: code });
+    return !!existing;
+  });
   product.barcode = barcode;
   await product.save();
   return Response.json({ barcode });
