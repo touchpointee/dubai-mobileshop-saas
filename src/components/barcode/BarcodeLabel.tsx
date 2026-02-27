@@ -43,8 +43,22 @@ export function BarcodeLabel({
     documentTitle: `Barcode-${barcode}`,
     onAfterPrint: onPrintComplete,
     pageStyle: `
-      @page { size: 40mm 25mm; margin: 2mm; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      @page { size: 40mm 25mm; margin: 0; }
+      @media print {
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 40mm !important;
+          height: 25mm !important;
+          min-height: 25mm !important;
+          max-height: 25mm !important;
+          overflow: hidden !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          page-break-after: avoid;
+          page-break-inside: avoid;
+        }
+      }
     `,
   });
 
@@ -64,10 +78,12 @@ export function BarcodeLabel({
       {/* Printable area: barcode + number only for small thermal printers */}
       <div
         ref={ref}
-        className="bg-white p-2 text-black border border-slate-200 rounded-lg"
+        className="bg-white p-2 text-black border border-slate-200 rounded-lg print:break-inside-avoid print:break-after-avoid"
         style={{
           width: "40mm",
+          height: "25mm",
           minHeight: "25mm",
+          maxHeight: "25mm",
           fontFamily: "system-ui, sans-serif",
         }}
       >
