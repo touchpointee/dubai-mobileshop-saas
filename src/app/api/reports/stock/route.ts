@@ -18,7 +18,7 @@ type StockRow = {
 };
 
 function getStockQty(p: StockRow): number {
-  return p.requiresImei ? (p.imeiCount ?? 0) : (p.quantity ?? 0);
+  return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : (p.quantity ?? 0);
 }
 
 export async function GET(request: NextRequest) {

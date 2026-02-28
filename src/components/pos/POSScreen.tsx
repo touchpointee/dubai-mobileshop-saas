@@ -16,7 +16,7 @@ import { Search, ShoppingCart, User, Percent, Package, Check, Minus, Plus } from
 type Product = { _id: string; name: string; sellPrice: number; quantity: number; brand?: string; requiresImei?: boolean; imeiCount?: number; minSellPrice?: number };
 
 function getAvailableQty(p: Product): number {
-  return p.requiresImei ? (p.imeiCount ?? 0) : p.quantity;
+  return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : p.quantity;
 }
 type ProductImei = { _id: string; imei: string; status: string };
 type Customer = { _id: string; name: string; phone?: string };

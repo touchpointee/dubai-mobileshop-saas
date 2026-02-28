@@ -51,7 +51,7 @@ export type StockReport = {
 };
 
 export function getStockQty(p: StockRow): number {
-  return p.requiresImei ? (p.imeiCount ?? 0) : (p.quantity ?? 0);
+  return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : (p.quantity ?? 0);
 }
 
 export function getStockValue(p: StockRow): number {

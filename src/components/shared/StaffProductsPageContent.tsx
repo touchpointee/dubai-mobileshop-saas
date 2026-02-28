@@ -35,7 +35,7 @@ function QtyBadge({ qty }: { qty: number }) {
 }
 
 function getAvailableQty(p: Product): number {
-  return p.requiresImei ? (p.imeiCount ?? 0) : p.quantity;
+  return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : p.quantity;
 }
 
 export function StaffProductsPageContent() {
@@ -60,9 +60,9 @@ export function StaffProductsPageContent() {
       header: "Qty",
       render: (p: Product) => (
         <span className="flex items-center gap-1.5">
-          {p.requiresImei && p.imeiCount !== undefined ? (
+          {p.requiresImei ? (
             <>
-              <QtyBadge qty={p.imeiCount} />
+              <QtyBadge qty={p.imeiCount ?? p.quantity ?? 0} />
               <span className="text-[10px] text-slate-400">IMEI</span>
             </>
           ) : (

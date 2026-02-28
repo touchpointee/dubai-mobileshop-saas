@@ -30,7 +30,7 @@ export type StaffStockResponse = {
 };
 
 function getStockQty(p: StaffStockRow): number {
-  return p.requiresImei ? (p.imeiCount ?? 0) : (p.quantity ?? 0);
+  return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : (p.quantity ?? 0);
 }
 
 type ChannelFilter = "VAT" | "NON_VAT" | "ALL";

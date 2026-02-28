@@ -65,7 +65,7 @@ export async function GET(
       productId: productObjId,
       status: "IN_STOCK",
     });
-    currentStock = count;
+    currentStock = count > 0 ? count : (p.quantity ?? 0);
   }
 
   const purchases = await Purchase.find({

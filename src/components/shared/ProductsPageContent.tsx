@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { swrFetcher } from "@/lib/swr-fetcher";
@@ -54,6 +54,7 @@ const emptyForm = {
   minSellPrice: "",
   requiresImei: false,
   barcode: "",
+  startingStock: "",
 };
 
 function QtyBadge({ qty }: { qty: number }) {
@@ -96,10 +97,39 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const [addDealerName, setAddDealerName] = useState("");
   const [addDealerPhone, setAddDealerPhone] = useState("");
   const [addDealerSaving, setAddDealerSaving] = useState(false);
+  const [startingStockImeis, setStartingStockImeis] = useState<string[]>([]);
+  const [scanImeiValue, setScanImeiValue] = useState("");
+  const scanImeiInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (modalOpen && !editing && form.requiresImei) {
+      const t = setTimeout(() => scanImeiInputRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }
+  }, [modalOpen, editing, form.requiresImei]);
+
+  function addImeiFromScan(value: string) {
+    const val = value.trim();
+    if (!val) return;
+    setStartingStockImeis((prev) => [...prev, val]);
+    setForm((f) => ({
+      ...f,
+      startingStock: String(
+        Math.max(
+          Math.max(0, Math.floor(Number(f.startingStock))),
+          startingStockImeis.length + 1
+        )
+      ),
+    }));
+    setScanImeiValue("");
+    scanImeiInputRef.current?.focus();
+  }
 
   function openAdd() {
     setEditing(null);
     setForm({ ...emptyForm });
+    setStartingStockImeis([]);
+    setScanImeiValue("");
     setShowAddCategoryInline(false);
     setNewCategoryName("");
     setNewCategoryParentId("");
@@ -147,6 +177,19 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         setSaving(false);
         return;
       }
+      const startingStockVal =
+        !editing && form.startingStock !== "" && !form.requiresImei
+          ? Math.max(0, Math.floor(Number(form.startingStock)))
+          : undefined;
+      if (!editing && form.requiresImei && form.startingStock !== "") {
+        const imeiCount = Math.max(0, Math.floor(Number(form.startingStock)));
+        const filled = startingStockImeis.slice(0, imeiCount).filter((s) => s.trim() !== "");
+        if (filled.length < imeiCount) {
+          alert(t("startingStockImeisRequired") || "Enter all IMEI numbers for starting stock.");
+          setSaving(false);
+          return;
+        }
+      }
       const payload = {
         ...form,
         ...(editing ? {} : { channel }),
@@ -158,6 +201,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         requiresImei: Boolean(form.requiresImei),
         trackByBatch: true,
         barcode: form.barcode?.trim() || undefined,
+        ...(startingStockVal !== undefined ? { startingStock: startingStockVal } : {}),
       };
       const res = await fetch(url, {
         method,
@@ -165,6 +209,28 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const productId = data._id;
+        if (!editing && form.requiresImei && productId && startingStockImeis.length > 0) {
+          const imeisToAdd = startingStockImeis
+            .slice(0, Math.max(0, Math.floor(Number(form.startingStock))))
+            .map((s) => s.trim())
+            .filter(Boolean);
+          for (const imei of imeisToAdd) {
+            const imeiRes = await fetch(`/api/products/${productId}/imeis`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imei }),
+            });
+            if (!imeiRes.ok) {
+              const errData = await imeiRes.json().catch(() => ({}));
+              alert(errData.error || tErrors("errorSavingProduct"));
+              mutate(swrKey);
+              setSaving(false);
+              return;
+            }
+          }
+        }
         setModalOpen(false);
         mutate(swrKey);
       } else {
@@ -301,9 +367,9 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       header: tTables("qty"),
       render: (p: Product) => (
         <span className="flex items-center gap-1.5">
-          {p.requiresImei === true && p.imeiCount !== undefined ? (
+          {p.requiresImei === true ? (
             <>
-              <QtyBadge qty={p.imeiCount} />
+              <QtyBadge qty={p.imeiCount ?? p.quantity ?? 0} />
               <span className="text-[10px] text-slate-400">IMEI</span>
             </>
           ) : (
@@ -475,6 +541,83 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
               <Label htmlFor="pr-minSell">{tForms("minSellPrice")}</Label>
               <Input id="pr-minSell" className="mt-1.5" type="number" step="0.01" min="0" value={form.minSellPrice} onChange={(e) => setForm((f) => ({ ...f, minSellPrice: e.target.value }))} placeholder={t("optional")} />
             </div>
+            {!editing && (
+              <div>
+                <Label htmlFor="pr-startingStock">{t("startingStock")}</Label>
+                <Input
+                  id="pr-startingStock"
+                  className="mt-1.5"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.startingStock}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((f) => ({ ...f, startingStock: val }));
+                    const n = Math.max(0, Math.floor(Number(val)));
+                    setStartingStockImeis((prev) => {
+                      const next = prev.slice(0, n);
+                      while (next.length < n) next.push("");
+                      return next;
+                    });
+                  }}
+                  placeholder={t("optional")}
+                />
+              </div>
+            )}
+            {!editing && form.requiresImei && (() => {
+              const n = Math.max(
+                Math.max(0, Math.floor(Number(form.startingStock))),
+                startingStockImeis.length
+              );
+              return (
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>{t("enterImeisForStartingStock")}</Label>
+                  <div className="rounded-md border border-slate-200 bg-slate-50/50 p-2">
+                    <Label htmlFor="pr-scan-imei" className="text-xs font-medium text-slate-500">
+                      {t("scanImeiToAdd")}
+                    </Label>
+                    <Input
+                      ref={scanImeiInputRef}
+                      id="pr-scan-imei"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={scanImeiValue}
+                      onChange={(e) => setScanImeiValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addImeiFromScan(scanImeiValue || (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      placeholder={t("scanImeiPlaceholder")}
+                      className="mt-1 font-mono text-sm"
+                    />
+                  </div>
+                  {n > 0 ? (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {Array.from({ length: n }, (_, i) => (
+                        <Input
+                          key={i}
+                          value={startingStockImeis[i] ?? ""}
+                          onChange={(e) =>
+                            setStartingStockImeis((prev) => {
+                              const next = [...prev];
+                              while (next.length < n) next.push("");
+                              next[i] = e.target.value;
+                              return next;
+                            })
+                          }
+                          placeholder={`IMEI ${i + 1}`}
+                          className="font-mono text-sm"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
             <div className="sm:col-span-2 flex items-center gap-2">
               <input
                 type="checkbox"

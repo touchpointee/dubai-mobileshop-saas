@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
+import { ProductBatch } from "@/models/ProductBatch";
 import { getCategoryPathDisplayString } from "@/lib/category-path";
 import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 import { ProductImei } from "@/models/ProductImei";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT or Non-VAT staff can add products" }, { status: 403 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode, startingStock } = body;
   if (!name || typeof name !== "string" || !name.trim()) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
@@ -67,9 +68,13 @@ export async function POST(request: NextRequest) {
   if (minSell != null && minSell > Number(sellPrice)) {
     return Response.json({ error: "Minimum selling price cannot exceed sell price" }, { status: 400 });
   }
+  const requiresImeiVal = requiresImei === true;
+  const startingQty =
+    !requiresImeiVal && startingStock != null && Number(startingStock) >= 0
+      ? Math.floor(Number(startingStock))
+      : 0;
   await connectDB();
   const productId = new mongoose.Types.ObjectId().toString();
-  const requiresImeiVal = requiresImei === true;
   const productData: Record<string, unknown> = {
     id: productId,
     shopId: new mongoose.Types.ObjectId(shopId),
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
     name: name.trim(),
     costPrice: Number(costPrice),
     sellPrice: Number(sellPrice),
-    quantity: 0,
+    quantity: startingQty,
     requiresImei: requiresImeiVal,
     trackByBatch: trackByBatch === true,
     isActive: true,
@@ -114,7 +119,18 @@ export async function POST(request: NextRequest) {
   if (!db) throw new Error("Database not connected");
   const collection = db.collection("products");
   const result = await collection.insertOne(productData);
-  const inserted = { _id: result.insertedId, ...productData };
-  const product = await Product.findOne({ _id: result.insertedId, shopId }).populate("dealerId", "name phone").lean();
+  const insertedId = result.insertedId;
+  const trackByBatchVal = productData.trackByBatch === true;
+  if (startingQty > 0 && trackByBatchVal && !requiresImeiVal) {
+    await ProductBatch.create({
+      productId: insertedId,
+      shopId: new mongoose.Types.ObjectId(shopId),
+      channel: "VAT",
+      quantity: startingQty,
+      costPrice: Number(costPrice),
+    });
+  }
+  const inserted = { _id: insertedId, ...productData };
+  const product = await Product.findOne({ _id: insertedId, shopId }).populate("dealerId", "name phone").lean();
   return Response.json(product ?? inserted);
 }
