@@ -160,6 +160,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       minSellPrice: p.minSellPrice != null && p.minSellPrice > 0 ? String(p.minSellPrice) : "",
       requiresImei: Boolean(p.requiresImei),
       barcode: p.barcode ?? "",
+      startingStock: "",
     });
     setModalOpen(true);
   }
