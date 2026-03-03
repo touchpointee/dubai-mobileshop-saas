@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { signIn, getSession, getCsrfToken } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import { ROLE_DEFAULT_PATH } from "@/lib/role-routes";
@@ -38,7 +38,6 @@ type ShopInfo = { name: string; nameAr?: string; logo?: string; slug: string };
 function LoginForm() {
   const t = useTranslations("auth");
   const tCommon = useTranslations("common");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
 
@@ -91,7 +90,6 @@ function LoginForm() {
           : ctx.type === "shop"
             ? "Invalid credentials or you don't have access to this shop"
             : t("invalidCredentials"));
-        setLoading(false);
         return;
       }
       let callbackUrl = searchParams.get("callbackUrl") ?? getCallbackDefault();
@@ -109,12 +107,13 @@ function LoginForm() {
       if (callbackUrl.startsWith("/") && !callbackUrl.startsWith(`/${locale}`) && callbackUrl !== `/${locale}/login`) {
         callbackUrl = `/${locale}${callbackUrl}`;
       }
-      router.push(callbackUrl);
-      router.refresh();
+      await new Promise((r) => setTimeout(r, 150));
+      window.location.href = callbackUrl;
     } catch {
       setError(t("invalidCredentials"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const title =
