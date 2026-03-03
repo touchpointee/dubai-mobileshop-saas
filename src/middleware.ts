@@ -71,8 +71,7 @@ export async function middleware(request: NextRequest) {
     return intlMiddleware(request);
   }
 
-  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-  const token = await getToken({ req: request, secret });
+  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
 
   if (isAdminSubdomain(host)) {
     if (!token) {

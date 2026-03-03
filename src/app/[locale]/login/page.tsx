@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { signIn, getSession, getCsrfToken } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import { ROLE_DEFAULT_PATH } from "@/lib/role-routes";
@@ -38,6 +38,7 @@ type ShopInfo = { name: string; nameAr?: string; logo?: string; slug: string };
 function LoginForm() {
   const t = useTranslations("auth");
   const tCommon = useTranslations("common");
+  const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
 
@@ -96,33 +97,20 @@ function LoginForm() {
       let callbackUrl = searchParams.get("callbackUrl") ?? getCallbackDefault();
       const isRootRedirect = callbackUrl === "/" || callbackUrl === `/${locale}` || callbackUrl === `/${locale}/` || (callbackUrl.startsWith("/") && callbackUrl.split("/").filter(Boolean).length <= 1);
       if (isRootRedirect) {
-        const maxAttempts = 5;
-        const initialDelayMs = 80;
-        const retryDelayMs = 100;
-        let session = null;
-        await new Promise((r) => setTimeout(r, initialDelayMs));
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          session = await getSession();
-          if (session?.user) break;
-          if (attempt < maxAttempts - 1) {
-            await new Promise((r) => setTimeout(r, retryDelayMs));
-          }
-        }
+        await new Promise((r) => setTimeout(r, 50));
+        const session = await getSession();
         const role = session?.user?.role as Role | undefined;
         callbackUrl = role && ROLE_DEFAULT_PATH[role]
           ? `/${locale}${ROLE_DEFAULT_PATH[role]}`
           : ctx.type === "admin"
             ? `/${locale}/super-admin/dashboard`
-            : ctx.type === "shop"
-              ? `/${locale}/vat/pos`
-              : `/${locale}/login`;
+            : `/${locale}/login`;
       }
       if (callbackUrl.startsWith("/") && !callbackUrl.startsWith(`/${locale}`) && callbackUrl !== `/${locale}/login`) {
         callbackUrl = `/${locale}${callbackUrl}`;
       }
-      // Short delay so the session cookie from signIn is committed before full-page redirect (fixes production redirect loop)
-      await new Promise((r) => setTimeout(r, 150));
-      window.location.href = callbackUrl;
+      router.push(callbackUrl);
+      router.refresh();
     } catch {
       setError(t("invalidCredentials"));
     }
