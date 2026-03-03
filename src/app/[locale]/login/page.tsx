@@ -120,6 +120,8 @@ function LoginForm() {
       if (callbackUrl.startsWith("/") && !callbackUrl.startsWith(`/${locale}`) && callbackUrl !== `/${locale}/login`) {
         callbackUrl = `/${locale}${callbackUrl}`;
       }
+      // Short delay so the session cookie from signIn is committed before full-page redirect (fixes production redirect loop)
+      await new Promise((r) => setTimeout(r, 150));
       window.location.href = callbackUrl;
     } catch {
       setError(t("invalidCredentials"));
