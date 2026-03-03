@@ -107,15 +107,15 @@ export async function middleware(request: NextRequest) {
 
   const shopSlug = getShopSlug(host);
   if (shopSlug) {
-    // Shop subdomain: require a valid token, but once authenticated
-    // let the app/router handle role-based access instead of enforcing
-    // path-level restrictions here (to avoid redirect loops).
-    if (!token || token.role === "SUPER_ADMIN") {
+    // Shop subdomain: only redirect to login when we're confident there's no session.
+    // If we have a token and it's not SUPER_ADMIN, allow. If we have no token, still
+    // let the request through — the VAT/staff layout uses auth() (Node) to check session
+    // and redirect. That avoids redirect loops when Edge middleware doesn't get
+    // AUTH_SECRET and getToken() returns null even though the cookie is valid.
+    if (token && token.role === "SUPER_ADMIN") {
       const locale = pathname.split("/").filter(Boolean)[0];
       const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
-      const loginUrl = new URL(`${prefix}/login`, request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL(`${prefix}/login`, request.url));
     }
 
     const headers = new Headers(request.headers);
