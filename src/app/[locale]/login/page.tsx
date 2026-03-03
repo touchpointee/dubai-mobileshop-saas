@@ -95,14 +95,21 @@ function LoginForm() {
       let callbackUrl = searchParams.get("callbackUrl") ?? getCallbackDefault();
       const isRootRedirect = callbackUrl === "/" || callbackUrl === `/${locale}` || callbackUrl === `/${locale}/` || (callbackUrl.startsWith("/") && callbackUrl.split("/").filter(Boolean).length <= 1);
       if (isRootRedirect) {
-        await new Promise((r) => setTimeout(r, 50));
-        const session = await getSession();
+        await new Promise((r) => setTimeout(r, 80));
+        let session = null;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          session = await getSession();
+          if (session?.user) break;
+          if (attempt < 3) await new Promise((r) => setTimeout(r, 100));
+        }
         const role = session?.user?.role as Role | undefined;
         callbackUrl = role && ROLE_DEFAULT_PATH[role]
           ? `/${locale}${ROLE_DEFAULT_PATH[role]}`
           : ctx.type === "admin"
             ? `/${locale}/super-admin/dashboard`
-            : `/${locale}/login`;
+            : ctx.type === "shop"
+              ? `/${locale}/vat/pos`
+              : `/${locale}/login`;
       }
       if (callbackUrl.startsWith("/") && !callbackUrl.startsWith(`/${locale}`) && callbackUrl !== `/${locale}/login`) {
         callbackUrl = `/${locale}${callbackUrl}`;
