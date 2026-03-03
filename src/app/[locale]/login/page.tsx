@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { signIn, getSession, getCsrfToken } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import { ROLE_DEFAULT_PATH } from "@/lib/role-routes";
@@ -38,7 +38,6 @@ type ShopInfo = { name: string; nameAr?: string; logo?: string; slug: string };
 function LoginForm() {
   const t = useTranslations("auth");
   const tCommon = useTranslations("common");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
 
@@ -114,13 +113,14 @@ function LoginForm() {
           ? `/${locale}${ROLE_DEFAULT_PATH[role]}`
           : ctx.type === "admin"
             ? `/${locale}/super-admin/dashboard`
-            : `/${locale}/login`;
+            : ctx.type === "shop"
+              ? `/${locale}/vat/pos`
+              : `/${locale}/login`;
       }
       if (callbackUrl.startsWith("/") && !callbackUrl.startsWith(`/${locale}`) && callbackUrl !== `/${locale}/login`) {
         callbackUrl = `/${locale}${callbackUrl}`;
       }
-      router.push(callbackUrl);
-      router.refresh();
+      window.location.href = callbackUrl;
     } catch {
       setError(t("invalidCredentials"));
     }
