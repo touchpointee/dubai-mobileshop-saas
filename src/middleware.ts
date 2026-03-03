@@ -107,35 +107,15 @@ export async function middleware(request: NextRequest) {
 
   const shopSlug = getShopSlug(host);
   if (shopSlug) {
-    if (!token) {
+    // Shop subdomain: require a valid token, but once authenticated
+    // let the app/router handle role-based access instead of enforcing
+    // path-level restrictions here (to avoid redirect loops).
+    if (!token || token.role === "SUPER_ADMIN") {
       const locale = pathname.split("/").filter(Boolean)[0];
       const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
       const loginUrl = new URL(`${prefix}/login`, request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
-    }
-
-    if (token.role === "SUPER_ADMIN") {
-      const locale = pathname.split("/").filter(Boolean)[0];
-      const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
-      return NextResponse.redirect(new URL(`${prefix}/login`, request.url));
-    }
-
-    const allowedPaths = SHOP_ROLE_PATHS[token.role as string] || [];
-    const pathAllowed = allowedPaths.some((p) => pathWithoutLocale.startsWith(p));
-
-    if (!pathAllowed && pathWithoutLocale !== "/" && pathWithoutLocale !== "") {
-      const defaultPath = getDefaultRedirect(token.role as Role);
-      const locale = pathname.split("/").filter(Boolean)[0];
-      const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
-      return NextResponse.redirect(new URL(`${prefix}${defaultPath}`, request.url));
-    }
-
-    if (pathWithoutLocale === "/" || pathWithoutLocale === "") {
-      const defaultPath = getDefaultRedirect(token.role as Role);
-      const locale = pathname.split("/").filter(Boolean)[0];
-      const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
-      return NextResponse.redirect(new URL(`${prefix}${defaultPath}`, request.url));
     }
 
     const headers = new Headers(request.headers);
