@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, getCsrfToken } from "next-auth/react";
 import { useTranslations, useLocale } from "next-intl";
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -17,15 +17,6 @@ const NAV_BY_ROLE: Record<
     { href: "/super-admin/shops", labelKey: "Shops" },
     { href: "/super-admin/users", labelKey: "Users" },
   ],
-  OWNER: [
-    { href: "/owner/dashboard", labelKey: "nav.dashboard" },
-    { href: "/owner/reports/sales", labelKey: "nav.reports" },
-    { href: "/owner/reports/vat", labelKey: "VAT Report" },
-    { href: "/owner/reports/profit-loss", labelKey: "P&L" },
-    { href: "/owner/expenses", labelKey: "nav.expenses" },
-    { href: "/owner/salary", labelKey: "Salary" },
-    { href: "/owner/settings", labelKey: "nav.settings" },
-  ],
   VAT_STAFF: [
     { href: "/vat/pos", labelKey: "nav.pos" },
     { href: "/vat/products", labelKey: "nav.products" },
@@ -38,18 +29,6 @@ const NAV_BY_ROLE: Record<
     { href: "/vat/returns", labelKey: "nav.returns" },
     { href: "/vat/settings", labelKey: "nav.settings" },
   ],
-  NON_VAT_STAFF: [
-    { href: "/non-vat/pos", labelKey: "nav.pos" },
-    { href: "/non-vat/products", labelKey: "nav.products" },
-    { href: "/non-vat/categories", labelKey: "nav.categories" },
-    { href: "/non-vat/categories", labelKey: "nav.subcategory" },
-    { href: "/non-vat/dealers", labelKey: "nav.dealers" },
-    { href: "/non-vat/customers", labelKey: "nav.customers" },
-    { href: "/non-vat/purchases", labelKey: "nav.purchases" },
-    { href: "/non-vat/sales", labelKey: "nav.sales" },
-    { href: "/non-vat/returns", labelKey: "nav.returns" },
-    { href: "/non-vat/settings", labelKey: "nav.settings" },
-  ],
   STAFF: [
     { href: "/staff/pos", labelKey: "nav.pos" },
     { href: "/staff/products", labelKey: "nav.products" },
@@ -61,11 +40,6 @@ const NAV_BY_ROLE: Record<
     { href: "/vat-shop-staff/pos", labelKey: "nav.pos" },
     { href: "/vat-shop-staff/stock", labelKey: "nav.stock" },
     { href: "/vat-shop-staff/service", labelKey: "nav.service" },
-  ],
-  NON_VAT_SHOP_STAFF: [
-    { href: "/non-vat-shop-staff/pos", labelKey: "nav.pos" },
-    { href: "/non-vat-shop-staff/stock", labelKey: "nav.stock" },
-    { href: "/non-vat-shop-staff/service", labelKey: "nav.service" },
   ],
 };
 
@@ -127,6 +101,7 @@ export function Sidebar({ role }: { role: Role }) {
         <button
           type="button"
           onClick={async () => {
+            await getCsrfToken();
             await signOut({ redirect: false });
             const loginPath = locale === "en" ? "/login" : `/${locale}/login`;
             window.location.href = `${window.location.origin}${loginPath}`;

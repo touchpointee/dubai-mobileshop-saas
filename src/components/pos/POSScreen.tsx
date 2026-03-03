@@ -265,26 +265,7 @@ export function POSScreen({
               className="ps-10 h-12 text-base"
             />
           </div>
-          {allowChannelSwitch && onChannelChange ? (
-            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-              <button
-                type="button"
-                onClick={() => channel !== "VAT" && onChannelChange("VAT")}
-                className={`min-h-[40px] rounded-lg px-4 text-sm font-medium transition ${channel === "VAT" ? "bg-white text-teal-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                VAT
-              </button>
-              <button
-                type="button"
-                onClick={() => channel !== "NON_VAT" && onChannelChange("NON_VAT")}
-                className={`min-h-[40px] rounded-lg px-4 text-sm font-medium transition ${channel === "NON_VAT" ? "bg-white text-teal-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Non-VAT
-              </button>
-            </div>
-          ) : (
-            <span className="text-sm font-medium text-slate-400">{channel} {t("channel")}</span>
-          )}
+          <span className="text-sm font-medium text-slate-400">VAT {t("channel")}</span>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

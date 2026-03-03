@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { SERVICE_JOB_STATUSES } from "@/lib/constants";
-import type { Channel } from "@/lib/constants";
 
 type ServiceJob = {
   _id: string;
@@ -107,16 +106,14 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
     jobId ? `/api/service-jobs/${jobId}/logs` : null,
     fetcher
   );
-  const { data: productsVat } = useSWR<Product[]>("/api/products?channel=VAT", fetcher);
-  const { data: productsNonVat } = useSWR<Product[]>("/api/products?channel=NON_VAT", fetcher);
+  const { data: productsVat } = useSWR<Product[]>("/api/products", fetcher);
 
   const [saving, setSaving] = useState(false);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [billForm, setBillForm] = useState({ labourAmount: "" });
-  const [billLines, setBillLines] = useState<{ productId: string; productName: string; quantity: number; unitPrice: number; channel: Channel }[]>([]);
+  const [billLines, setBillLines] = useState<{ productId: string; productName: string; quantity: number; unitPrice: number; channel: "VAT" }[]>([]);
   const [addPartProduct, setAddPartProduct] = useState("");
   const [addPartQty, setAddPartQty] = useState(1);
-  const [addPartChannel, setAddPartChannel] = useState<Channel>("VAT");
 
   async function updateJob(updates: Partial<ServiceJob>) {
     if (!jobId) return;
@@ -137,10 +134,9 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
   }
 
   function addPart() {
-    const products = addPartChannel === "VAT" ? productsVat : productsNonVat;
-    const p = products?.find((x) => x._id === addPartProduct);
+    const p = productsVat?.find((x) => x._id === addPartProduct);
     if (!p) return;
-    setBillLines((prev) => [...prev, { productId: p._id, productName: p.name, quantity: addPartQty, unitPrice: p.sellPrice, channel: addPartChannel }]);
+    setBillLines((prev) => [...prev, { productId: p._id, productName: p.name, quantity: addPartQty, unitPrice: p.sellPrice, channel: "VAT" }]);
     setAddPartProduct("");
     setAddPartQty(1);
   }
@@ -176,7 +172,7 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
 
   if (isLoading || !job) return <div className="p-6">Loading…</div>;
 
-  const productsForChannel = addPartChannel === "VAT" ? productsVat : productsNonVat;
+  const productsForChannel = productsVat;
   const partsTotal = billLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
   const labour = Number(billForm.labourAmount) || 0;
   const billTotal = labour + partsTotal;
@@ -313,14 +309,6 @@ export function ServiceJobDetailContent({ jobId }: { jobId: string; basePath?: s
           <div>
             <Label>Add part</Label>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <select
-                value={addPartChannel}
-                onChange={(e) => setAddPartChannel(e.target.value as Channel)}
-                className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm w-24"
-              >
-                <option value="VAT">VAT</option>
-                <option value="NON_VAT">Non-VAT</option>
-              </select>
               <select
                 value={addPartProduct}
                 onChange={(e) => setAddPartProduct(e.target.value)}

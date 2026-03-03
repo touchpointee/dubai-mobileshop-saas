@@ -123,7 +123,7 @@ export default function StaffDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
         <div>
           <Link
-            href="/owner/salary"
+            href="/vat/salary"
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-2"
           >
             <ArrowLeft size={16} />

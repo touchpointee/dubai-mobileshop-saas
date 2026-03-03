@@ -33,7 +33,7 @@ function getStockQty(p: StaffStockRow): number {
   return p.requiresImei ? (p.imeiCount ?? p.quantity ?? 0) : (p.quantity ?? 0);
 }
 
-type ChannelFilter = "VAT" | "NON_VAT" | "ALL";
+type ChannelFilter = "VAT" | "ALL";
 
 export function StaffStockContent({
   title,
@@ -147,7 +147,6 @@ export function StaffStockContent({
                 className="flex h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
               >
                 <option value="VAT">{t("vat")}</option>
-                <option value="NON_VAT">{t("nonVat")}</option>
                 <option value="ALL">{t("combined")}</option>
               </select>
             </div>

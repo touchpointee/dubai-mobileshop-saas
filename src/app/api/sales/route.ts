@@ -9,26 +9,16 @@ import { ProductBatch } from "@/models/ProductBatch";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, setCounterIfHigher, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import type { Channel } from "@/lib/constants";
 
-function getChannelFromRole(role: string): Channel | null {
+function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF" || role === "NON_VAT_SHOP_STAFF") return "NON_VAT";
   return null;
 }
 
 export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
-  const channelParam = request.nextUrl.searchParams.get("channel") as Channel | null;
-  const role = session!.user.role;
-  const staffChannel = getChannelFromRole(role);
-  const channel =
-    role === "STAFF"
-      ? (channelParam === "VAT" || channelParam === "NON_VAT" ? channelParam : "VAT")
-      : role === "OWNER" || role === "SUPER_ADMIN"
-        ? channelParam ?? "VAT"
-        : staffChannel ?? "VAT";
+  const channel: "VAT" = "VAT";
   await connectDB();
   const list = await Sale.find({ shopId, channel })
     .populate("soldBy", "name")
@@ -55,16 +45,12 @@ export async function POST(request: NextRequest) {
     channel: bodyChannel,
   } = body;
 
-  let staffChannel: Channel | null = getChannelFromRole(role);
-  if (role === "STAFF") {
-    const ch = bodyChannel === "VAT" || bodyChannel === "NON_VAT" ? bodyChannel : null;
-    if (!ch) {
-      return Response.json({ error: "Staff must provide channel (VAT or NON_VAT) in request body" }, { status: 400 });
-    }
-    staffChannel = ch;
+  const staffChannel: "VAT" | null = getChannelFromRole(role);
+  if (role === "STAFF" && bodyChannel !== "VAT") {
+    return Response.json({ error: "Only VAT channel is supported" }, { status: 400 });
   }
   if (!staffChannel) {
-    return Response.json({ error: "Only VAT or Non-VAT staff can create sales" }, { status: 403 });
+    return Response.json({ error: "Only VAT staff can create sales" }, { status: 403 });
   }
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -76,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   await connectDB();
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
-  const vatRate = staffChannel === "VAT" ? (shop?.vatRate ?? 5) : 0;
+  const vatRate = shop?.vatRate ?? 5;
 
   let subtotal = 0;
   const saleItems: {
@@ -134,7 +120,7 @@ export async function POST(request: NextRequest) {
   // VAT-inclusive pricing: price already includes VAT, so grandTotal = afterDiscount
   // Extract VAT from the total using: vatAmount = total * vatRate / (100 + vatRate)
   const grandTotal = afterDiscount;
-  const vatableAmount = staffChannel === "VAT" ? grandTotal : 0;
+  const vatableAmount = grandTotal;
   const vatAmount = vatRate > 0 ? (vatableAmount * vatRate) / (100 + vatRate) : 0;
 
   let paidAmount = 0;
@@ -152,13 +138,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const counterKey = staffChannel === "VAT" ? COUNTER_KEYS.VAT_INVOICE : COUNTER_KEYS.NON_VAT_INVOICE;
+  const counterKey = COUNTER_KEYS.VAT_INVOICE;
   const shopObjId = new mongoose.Types.ObjectId(shopId as string);
-  const prefix = staffChannel === "VAT" ? "VAT" : "NV";
+  const prefix = "VAT";
 
   const salePayload = {
     shopId,
-    channel: staffChannel,
+    channel: "VAT",
     customerId: customerId ? new mongoose.Types.ObjectId(customerId) : undefined,
     customerName: customerName?.trim(),
     customerPhone: customerPhone?.trim(),
@@ -182,7 +168,7 @@ export async function POST(request: NextRequest) {
   let sale: mongoose.Document | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const [maxResult] = await Sale.aggregate<{ maxNum: number }>()
-      .match({ shopId: shopObjId, channel: staffChannel })
+      .match({ shopId: shopObjId, channel: "VAT" })
       .addFields({ num: { $toInt: { $arrayElemAt: [{ $split: ["$invoiceNumber", "-"] }, 1] } } })
       .group({ _id: null, maxNum: { $max: "$num" } })
       .exec();

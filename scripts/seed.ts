@@ -42,43 +42,26 @@ async function seed() {
     console.log("Demo shop already exists.");
   }
 
-  const existingOwner = await User.findOne({ email: "owner@demo.local" });
-  if (!existingOwner) {
-    await User.create({
-      name: "Demo Owner",
-      email: "owner@demo.local",
-      password: hashed,
-      role: "OWNER",
-      shopId: demoShop._id,
-      isActive: true,
-    });
-    console.log("Created demo owner: owner@demo.local / admin123");
+  // Migrate any existing OWNER users to VAT_STAFF (owner role removed)
+  const ownerCount = await User.updateMany(
+    { role: "OWNER" as never },
+    { $set: { role: "VAT_STAFF" } }
+  );
+  if (ownerCount.modifiedCount > 0) {
+    console.log(`Migrated ${ownerCount.modifiedCount} OWNER user(s) to VAT_STAFF`);
   }
 
   const existingVatStaff = await User.findOne({ email: "vat@demo.local" });
   if (!existingVatStaff) {
     await User.create({
-      name: "VAT Staff",
+      name: "Owner",
       email: "vat@demo.local",
       password: staffHashed,
       role: "VAT_STAFF",
       shopId: demoShop._id,
       isActive: true,
     });
-    console.log("Created VAT staff: vat@demo.local / staff123");
-  }
-
-  const existingNonVatStaff = await User.findOne({ email: "nonvat@demo.local" });
-  if (!existingNonVatStaff) {
-    await User.create({
-      name: "Non-VAT Staff",
-      email: "nonvat@demo.local",
-      password: staffHashed,
-      role: "NON_VAT_STAFF",
-      shopId: demoShop._id,
-      isActive: true,
-    });
-    console.log("Created Non-VAT staff: nonvat@demo.local / staff123");
+    console.log("Created Owner: vat@demo.local / staff123");
   }
 
   const existingStaff = await User.findOne({ email: "staff@demo.local" });
@@ -99,9 +82,7 @@ async function seed() {
   console.log("  Demo Shop:    http://demo.localhost:3000");
   console.log("\nCredentials:");
   console.log("  Super Admin:  superadmin@pos.local / admin123");
-  console.log("  Owner:        owner@demo.local / admin123");
-  console.log("  VAT Staff:    vat@demo.local / staff123");
-  console.log("  Non-VAT Staff: nonvat@demo.local / staff123");
+  console.log("  Owner:        vat@demo.local / staff123");
   console.log("  Staff:        staff@demo.local / staff123");
 
   await mongoose.disconnect();

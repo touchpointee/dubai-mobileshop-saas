@@ -1,4 +1,4 @@
-export const ROLES = ["SUPER_ADMIN", "OWNER", "VAT_STAFF", "NON_VAT_STAFF", "STAFF", "VAT_SHOP_STAFF", "NON_VAT_SHOP_STAFF"] as const;
+export const ROLES = ["SUPER_ADMIN", "VAT_STAFF", "STAFF", "VAT_SHOP_STAFF"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const CHANNELS = ["VAT", "NON_VAT"] as const;

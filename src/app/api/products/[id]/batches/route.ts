@@ -6,9 +6,8 @@ import { Product } from "@/models/Product";
 import { ProductBatch } from "@/models/ProductBatch";
 import type { Channel } from "@/lib/constants";
 
-function getChannel(role: string): Channel | null {
-  if (role === "VAT_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF") return "NON_VAT";
+function getChannel(role: string): "VAT" | null {
+  if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
   return null;
 }
 
@@ -39,7 +38,7 @@ export async function POST(
   if (error) return error;
   const staffChannel = getChannel(session!.user.role);
   if (!staffChannel) {
-    return Response.json({ error: "Only VAT or Non-VAT staff can add batches" }, { status: 403 });
+    return Response.json({ error: "Only VAT staff can add batches" }, { status: 403 });
   }
   const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -61,7 +60,7 @@ export async function POST(
   const batch = await ProductBatch.create({
     productId: id,
     shopId,
-    channel: staffChannel,
+    channel: "VAT",
     quantity: qty,
     costPrice: cost,
   });

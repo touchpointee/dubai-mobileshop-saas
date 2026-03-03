@@ -27,11 +27,10 @@
   },
   "roleLabels": {
     "SUPER_ADMIN": "لوحة الإدارة",
-    "OWNER": "المالك",
-    "VAT_STAFF": "الفواتير الضريبية",
-    "NON_VAT_STAFF": "الفواتير غير الضريبية",
+    "VAT_STAFF": "المالك",
+    "NON_VAT_STAFF": "المالك",
     "STAFF": "الموظف",
-    "VAT_SHOP_STAFF": "موظف المتجر الضريبي",
+    "VAT_SHOP_STAFF": "موظف الفوترة",
     "NON_VAT_SHOP_STAFF": "موظف المتجر غير الضريبي"
   },
   "nav": {

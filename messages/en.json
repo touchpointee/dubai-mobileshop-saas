@@ -27,11 +27,10 @@
   },
   "roleLabels": {
     "SUPER_ADMIN": "Admin Panel",
-    "OWNER": "Owner",
-    "VAT_STAFF": "VAT Billing",
-    "NON_VAT_STAFF": "Non-VAT Billing",
+    "VAT_STAFF": "Owner",
+    "NON_VAT_STAFF": "Owner",
     "STAFF": "Staff",
-    "VAT_SHOP_STAFF": "VAT Shop Staff",
+    "VAT_SHOP_STAFF": "Billing Staff",
     "NON_VAT_SHOP_STAFF": "Non-VAT Shop Staff"
   },
   "nav": {

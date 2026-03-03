@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     barcode: trimmed,
     isActive: true,
   };
-  if (channel === "VAT" || channel === "NON_VAT") {
+  if (channel === "VAT") {
     barcodeQuery.channel = channel;
   }
   const productByBarcode = await Product.findOne(barcodeQuery).lean();

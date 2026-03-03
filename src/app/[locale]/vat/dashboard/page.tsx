@@ -44,13 +44,13 @@ export default function DashboardPage() {
           <StatCard
             title={t("todaySales")}
             value={formatCurrency(data.todaySales.total)}
-            subtitle={`${t("vat")} ${formatCurrency(data.todaySales.vat)} · ${t("nonVat")} ${formatCurrency(data.todaySales.nonVat)}`}
+            subtitle={`${t("vat")} ${formatCurrency(data.todaySales.vat)}`}
             icon={<TrendingUp size={20} />}
           />
           <StatCard
             title={t("thisMonth")}
             value={formatCurrency(data.monthSales.total)}
-            subtitle={`${t("vat")} ${formatCurrency(data.monthSales.vat)} · ${t("nonVat")} ${formatCurrency(data.monthSales.nonVat)}`}
+            subtitle={`${t("vat")} ${formatCurrency(data.monthSales.vat)}`}
             icon={<BarChart3 size={20} />}
           />
           <StatCard
@@ -78,22 +78,22 @@ export default function DashboardPage() {
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <QuickLink
-              href={`/${locale}/owner/reports/sales`}
+              href={`/${locale}/vat/reports/sales`}
               icon={<BarChart3 size={18} />}
               labelKey="pages.salesReport"
             />
             <QuickLink
-              href={`/${locale}/owner/reports/vat`}
+              href={`/${locale}/vat/reports/vat`}
               icon={<FileText size={18} />}
               labelKey="pages.vatReport"
             />
             <QuickLink
-              href={`/${locale}/owner/reports/profit-loss`}
+              href={`/${locale}/vat/reports/profit-loss`}
               icon={<TrendingUp size={18} />}
               labelKey="pages.profitLoss"
             />
             <QuickLink
-              href={`/${locale}/owner/expenses`}
+              href={`/${locale}/vat/expenses`}
               icon={<Truck size={18} />}
               labelKey="pages.expenses"
             />

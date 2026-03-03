@@ -31,13 +31,13 @@ export function LandingPage({ locale }: { locale: string }) {
           <span className="text-teal-400">Dubai Mobile Shops</span>
         </h1>
         <p className="mb-8 max-w-lg text-lg text-slate-300">
-          Multi-tenant point of sale with VAT & Non-VAT billing, IMEI tracking,
-          thermal receipts, A4 invoices, and owner dashboards. Bilingual EN/AR with RTL.
+          Multi-tenant point of sale with owner and billing staff dashboards, IMEI tracking,
+          thermal receipts, A4 invoices, and more. Bilingual EN/AR with RTL.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-white backdrop-blur">
-            <p className="text-2xl font-bold text-teal-400">VAT + Non-VAT</p>
-            <p className="text-sm text-slate-400">Dual billing channels</p>
+            <p className="text-2xl font-bold text-teal-400">Owner</p>
+            <p className="text-sm text-slate-400">Owner login</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-white backdrop-blur">
             <p className="text-2xl font-bold text-teal-400">IMEI</p>

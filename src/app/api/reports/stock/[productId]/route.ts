@@ -21,7 +21,7 @@ export async function GET(
   if (error) return error;
 
   const role = session!.user.role;
-  if (role === "VAT_SHOP_STAFF" || role === "NON_VAT_SHOP_STAFF") {
+  if (role === "VAT_SHOP_STAFF") {
     return Response.json({ error: "Access denied" }, { status: 403 });
   }
 
@@ -39,9 +39,6 @@ export async function GET(
 
   const productChannel = (product as { channel?: string }).channel;
   if (role === "VAT_STAFF" && productChannel !== "VAT") {
-    return Response.json({ error: "Access denied to this product" }, { status: 403 });
-  }
-  if (role === "NON_VAT_STAFF" && productChannel !== "NON_VAT") {
     return Response.json({ error: "Access denied to this product" }, { status: 403 });
   }
 

@@ -8,11 +8,9 @@ import { getCategoryPathDisplayString } from "@/lib/category-path";
 import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
-import type { Channel } from "@/lib/constants";
 
-function getChannelFromRole(role: string): Channel | null {
+function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF" || role === "NON_VAT_SHOP_STAFF") return "NON_VAT";
   return null;
 }
 
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   const staffChannel = getChannelFromRole(session!.user.role);
   if (!staffChannel) {
-    return Response.json({ error: "Only VAT or Non-VAT staff can add products" }, { status: 403 });
+    return Response.json({ error: "Only VAT staff can add products" }, { status: 403 });
   }
   const body = await request.json();
   const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode, startingStock } = body;

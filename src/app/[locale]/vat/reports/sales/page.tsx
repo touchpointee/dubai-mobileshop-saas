@@ -37,15 +37,13 @@ export default function SalesReportPage() {
     return d.toISOString().slice(0, 10);
   });
   const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
-  const [channel, setChannel] = useState("ALL");
   const [data, setData] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function loadReport() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from, to });
-      if (channel !== "ALL") params.set("channel", channel);
+      const params = new URLSearchParams({ from, to, channel: "VAT" });
       const res = await fetch(`/api/reports/sales?${params}`);
       if (res.ok) {
         setData(await res.json());
@@ -105,20 +103,6 @@ export default function SalesReportPage() {
               onChange={(e) => setTo(e.target.value)}
               className="w-40"
             />
-          </div>
-          <div>
-            <Label className="mb-1 block text-xs text-slate-500">
-              {t("channel")}
-            </Label>
-            <select
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              className="flex h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-            >
-              <option value="ALL">{t("all")}</option>
-              <option value="VAT">{t("vat")}</option>
-              <option value="NON_VAT">{t("nonVat")}</option>
-            </select>
           </div>
           <Button onClick={loadReport} disabled={loading}>
             {loading && <Loader2 size={16} className="mr-2 animate-spin" />}

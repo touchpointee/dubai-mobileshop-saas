@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { signIn, getSession, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
@@ -49,10 +49,12 @@ function LoginForm() {
 
   const [ctx, setCtx] = useState<{ type: "admin" | "shop" | "landing"; slug?: string }>({ type: "landing" });
   const [shopInfo, setShopInfo] = useState<ShopInfo | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   useEffect(() => {
     const c = getContext();
     setCtx(c);
+    getCsrfToken().then((token) => token && setCsrfToken(token));
     if (c.type === "shop" && c.slug) {
       fetch(`/api/shop-info?slug=${encodeURIComponent(c.slug)}`)
         .then((r) => r.ok ? r.json() : null)
@@ -75,11 +77,13 @@ function LoginForm() {
       if (ctx.type === "admin") context = "admin";
       else if (ctx.type === "shop" && ctx.slug) context = `shop:${ctx.slug}`;
 
+      const token = csrfToken ?? (await getCsrfToken());
       const res = await signIn("credentials", {
         email,
         password,
         context,
         redirect: false,
+        csrfToken: token ?? undefined,
       });
       if (res?.error) {
         setError(ctx.type === "admin"
@@ -93,8 +97,18 @@ function LoginForm() {
       let callbackUrl = searchParams.get("callbackUrl") ?? getCallbackDefault();
       const isRootRedirect = callbackUrl === "/" || callbackUrl === `/${locale}` || callbackUrl === `/${locale}/` || (callbackUrl.startsWith("/") && callbackUrl.split("/").filter(Boolean).length <= 1);
       if (isRootRedirect) {
-        await new Promise((r) => setTimeout(r, 50));
-        const session = await getSession();
+        const maxAttempts = 5;
+        const initialDelayMs = 80;
+        const retryDelayMs = 100;
+        let session = null;
+        await new Promise((r) => setTimeout(r, initialDelayMs));
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          session = await getSession();
+          if (session?.user) break;
+          if (attempt < maxAttempts - 1) {
+            await new Promise((r) => setTimeout(r, retryDelayMs));
+          }
+        }
         const role = session?.user?.role as Role | undefined;
         callbackUrl = role && ROLE_DEFAULT_PATH[role]
           ? `/${locale}${ROLE_DEFAULT_PATH[role]}`
@@ -126,7 +140,7 @@ function LoginForm() {
     ctx.type === "admin"
       ? "Super Admin Portal"
       : ctx.type === "shop"
-        ? "Staff & Owner Portal"
+        ? "Staff Portal"
         : "";
 
   return (

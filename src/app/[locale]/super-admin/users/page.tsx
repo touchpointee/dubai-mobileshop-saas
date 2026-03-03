@@ -41,17 +41,18 @@ const API_SHOPS = "/api/super-admin/shops";
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: "bg-slate-100 text-slate-700",
-  OWNER: "bg-teal-50 text-teal-700",
   VAT_STAFF: "bg-blue-50 text-blue-700",
-  NON_VAT_STAFF: "bg-amber-50 text-amber-700",
+  NON_VAT_STAFF: "bg-blue-50 text-blue-700",
   STAFF: "bg-emerald-50 text-emerald-700",
+  VAT_SHOP_STAFF: "bg-indigo-50 text-indigo-700",
+  NON_VAT_SHOP_STAFF: "bg-slate-100 text-slate-600",
 };
 
 const emptyForm: UserForm = {
   name: "",
   email: "",
   password: "",
-  role: "OWNER",
+  role: "VAT_STAFF",
   shopId: "",
 };
 

@@ -8,13 +8,9 @@ export async function GET(request: NextRequest) {
   if (error) return error;
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
-  const channel = request.nextUrl.searchParams.get("channel");
   await connectDB();
 
-  const match: Record<string, unknown> = { shopId, status: "COMPLETED" };
-  if (channel && (channel === "VAT" || channel === "NON_VAT")) {
-    match.channel = channel;
-  }
+  const match: Record<string, unknown> = { shopId, status: "COMPLETED", channel: "VAT" };
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.$gte = new Date(from);

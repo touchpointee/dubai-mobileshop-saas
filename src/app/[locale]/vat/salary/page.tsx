@@ -82,7 +82,7 @@ export default function SalaryPage() {
           variant="outline"
           onClick={(ev) => {
             ev.stopPropagation();
-            router.push(`/owner/salary/${r._id}`);
+            router.push(`/vat/salary/${r._id}`);
           }}
         >
           {t("viewDetail")}
@@ -107,7 +107,7 @@ export default function SalaryPage() {
           columns={columns}
           data={staffList ?? []}
           emptyMessage={t("noStaffYet")}
-          onRowClick={(row) => router.push(`/owner/salary/${row._id}`)}
+          onRowClick={(row) => router.push(`/vat/salary/${row._id}`)}
         />
       </div>
 

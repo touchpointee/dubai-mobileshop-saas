@@ -30,7 +30,6 @@ export default function ExpensesPage() {
   const tForms = useTranslations("forms");
   const tCommon = useTranslations("common");
   const tTables = useTranslations("tables");
-  const tModals = useTranslations("modals");
   const tErrors = useTranslations("errors");
   const [from, setFrom] = useState(() => {
     const d = new Date();

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, getCsrfToken } from "next-auth/react";
 import { useTranslations, useLocale } from "next-intl";
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -49,42 +49,13 @@ const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       ],
     },
   ],
-  OWNER: [
+  VAT_STAFF: [
     {
       sectionKey: "nav.sectionMain",
       items: [
-        { href: "/owner/dashboard", labelKey: "nav.dashboard", icon: <LayoutDashboard size={ICON_SIZE} /> },
-        { href: "/owner/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionReports",
-      items: [
-        { href: "/owner/reports/sales", labelKey: "nav.salesReport", icon: <BarChart3 size={ICON_SIZE} /> },
-        { href: "/owner/reports/vat", labelKey: "nav.vatReport", icon: <FileText size={ICON_SIZE} /> },
-        { href: "/owner/reports/profit-loss", labelKey: "nav.profitLoss", icon: <TrendingUp size={ICON_SIZE} /> },
-        { href: "/owner/reports/stock", labelKey: "nav.stockReport", icon: <Layers size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionFinance",
-      items: [
-        { href: "/owner/expenses", labelKey: "nav.expenses", icon: <Wallet size={ICON_SIZE} /> },
-        { href: "/owner/salary", labelKey: "nav.salary", icon: <CreditCard size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionSettings",
-      items: [
-        { href: "/owner/settings", labelKey: "nav.settings", icon: <Settings size={ICON_SIZE} /> },
-      ],
-    },
-  ],
-  VAT_STAFF: [
-    {
-      sectionKey: "nav.sectionSell",
-      items: [
+        { href: "/vat/dashboard", labelKey: "nav.dashboard", icon: <LayoutDashboard size={ICON_SIZE} /> },
         { href: "/vat/pos", labelKey: "nav.pos", icon: <ShoppingCart size={ICON_SIZE} /> },
+        { href: "/vat/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
       ],
     },
     {
@@ -111,58 +82,25 @@ const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       ],
     },
     {
-      sectionKey: "nav.sectionMain",
+      sectionKey: "nav.sectionReports",
       items: [
-        { href: "/vat/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
+        { href: "/vat/reports/sales", labelKey: "nav.salesReport", icon: <BarChart3 size={ICON_SIZE} /> },
+        { href: "/vat/reports/vat", labelKey: "nav.vatReport", icon: <FileText size={ICON_SIZE} /> },
+        { href: "/vat/reports/profit-loss", labelKey: "nav.profitLoss", icon: <TrendingUp size={ICON_SIZE} /> },
+        { href: "/vat/reports/stock", labelKey: "nav.stockReport", icon: <Layers size={ICON_SIZE} /> },
+      ],
+    },
+    {
+      sectionKey: "nav.sectionFinance",
+      items: [
+        { href: "/vat/expenses", labelKey: "nav.expenses", icon: <Wallet size={ICON_SIZE} /> },
+        { href: "/vat/salary", labelKey: "nav.salary", icon: <CreditCard size={ICON_SIZE} /> },
       ],
     },
     {
       sectionKey: "nav.sectionSettings",
       items: [
         { href: "/vat/settings", labelKey: "nav.settings", icon: <Settings size={ICON_SIZE} /> },
-      ],
-    },
-  ],
-  NON_VAT_STAFF: [
-    {
-      sectionKey: "nav.sectionSell",
-      items: [
-        { href: "/non-vat/pos", labelKey: "nav.pos", icon: <ShoppingCart size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionInventory",
-      items: [
-        { href: "/non-vat/products", labelKey: "nav.products", icon: <Package size={ICON_SIZE} /> },
-        { href: "/non-vat/stock", labelKey: "nav.stock", icon: <Layers size={ICON_SIZE} /> },
-        { href: "/non-vat/categories", labelKey: "nav.categories", icon: <Tags size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionPartners",
-      items: [
-        { href: "/non-vat/dealers", labelKey: "nav.dealers", icon: <Truck size={ICON_SIZE} /> },
-        { href: "/non-vat/customers", labelKey: "nav.customers", icon: <UserCircle size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionTransactions",
-      items: [
-        { href: "/non-vat/purchases", labelKey: "nav.purchases", icon: <Receipt size={ICON_SIZE} /> },
-        { href: "/non-vat/sales", labelKey: "nav.sales", icon: <BarChart3 size={ICON_SIZE} /> },
-        { href: "/non-vat/returns", labelKey: "nav.returns", icon: <RotateCcw size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionMain",
-      items: [
-        { href: "/non-vat/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
-      ],
-    },
-    {
-      sectionKey: "nav.sectionSettings",
-      items: [
-        { href: "/non-vat/settings", labelKey: "nav.settings", icon: <Settings size={ICON_SIZE} /> },
       ],
     },
   ],
@@ -188,16 +126,6 @@ const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       ],
     },
   ],
-  NON_VAT_SHOP_STAFF: [
-    {
-      sectionKey: "nav.sectionMain",
-      items: [
-        { href: "/non-vat-shop-staff/pos", labelKey: "nav.pos", icon: <ShoppingCart size={ICON_SIZE} /> },
-        { href: "/non-vat-shop-staff/stock", labelKey: "nav.stock", icon: <Layers size={ICON_SIZE} /> },
-        { href: "/non-vat-shop-staff/service", labelKey: "nav.service", icon: <Wrench size={ICON_SIZE} /> },
-      ],
-    },
-  ],
 };
 
 export function AppSidebar({ role }: { role: Role }) {
@@ -206,7 +134,7 @@ export function AppSidebar({ role }: { role: Role }) {
   const locale = useLocale();
   const sections = NAV_BY_ROLE[role];
   const setNavigating = useNavigationStore((s) => s.setNavigating);
-  const roleLabelKey = `roleLabels.${role}` as "roleLabels.OWNER" | "roleLabels.VAT_STAFF" | "roleLabels.NON_VAT_STAFF" | "roleLabels.STAFF" | "roleLabels.SUPER_ADMIN" | "roleLabels.VAT_SHOP_STAFF" | "roleLabels.NON_VAT_SHOP_STAFF";
+  const roleLabelKey = `roleLabels.${role}` as "roleLabels.VAT_STAFF" | "roleLabels.NON_VAT_STAFF" | "roleLabels.STAFF" | "roleLabels.SUPER_ADMIN" | "roleLabels.VAT_SHOP_STAFF" | "roleLabels.NON_VAT_SHOP_STAFF";
 
   return (
     <aside className="flex h-full min-h-0 w-72 shrink-0 flex-col border-e border-slate-200 bg-white">
@@ -281,6 +209,7 @@ export function AppSidebar({ role }: { role: Role }) {
         <button
           type="button"
           onClick={async () => {
+            await getCsrfToken();
             await signOut({ redirect: false });
             const loginPath = locale === "en" ? "/login" : `/${locale}/login`;
             window.location.href = `${window.location.origin}${loginPath}`;

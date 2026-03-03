@@ -10,23 +10,16 @@ import { Dealer } from "@/models/Dealer";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import type { Channel } from "@/lib/constants";
 
-function getChannelFromRole(role: string): Channel | null {
-  if (role === "VAT_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF") return "NON_VAT";
+function getChannelFromRole(role: string): "VAT" | null {
+  if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
   return null;
 }
 
 export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
-  const channelParam = request.nextUrl.searchParams.get("channel") as Channel | null;
-  const staffChannel = getChannelFromRole(session!.user.role);
-  const channel =
-    session!.user.role === "OWNER" || session!.user.role === "SUPER_ADMIN"
-      ? channelParam ?? "VAT"
-      : staffChannel ?? "VAT";
+  const channel: "VAT" = "VAT";
   await connectDB();
   const list = await Purchase.find({ shopId, channel })
     .populate("dealerId", "name phone")
@@ -40,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   const staffChannel = getChannelFromRole(session!.user.role);
   if (!staffChannel) {
-    return Response.json({ error: "Only VAT or Non-VAT staff can create purchases" }, { status: 403 });
+    return Response.json({ error: "Only VAT staff can create purchases" }, { status: 403 });
   }
   const body = await request.json();
   const { dealerId, items, notes, purchaseDate: purchaseDateInput, invoiceNumber: bodyInvoiceNumber } = body;
@@ -126,7 +119,7 @@ export async function POST(request: NextRequest) {
   const anyApplyVat = purchaseItems.some((i) => i.applyVat);
   const createPayload: Record<string, unknown> = {
     shopId,
-    channel: staffChannel,
+    channel: "VAT",
     dealerId,
     invoiceNumber,
     items: purchaseItems,
@@ -156,7 +149,7 @@ export async function POST(request: NextRequest) {
         await ProductBatch.create({
           productId: product._id,
           shopId,
-          channel: staffChannel,
+          channel: "VAT",
           quantity: item.quantity,
           costPrice: item.costPrice,
           purchaseId: purchase._id,

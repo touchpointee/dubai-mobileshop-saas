@@ -8,28 +8,16 @@ import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import type { Channel } from "@/lib/constants";
 
-function getChannelFromRole(role: string): Channel | null {
+function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
-  if (role === "NON_VAT_STAFF" || role === "NON_VAT_SHOP_STAFF") return "NON_VAT";
   return null;
 }
 
 export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
-  const channelParam = request.nextUrl.searchParams.get("channel") as Channel | null;
-  const role = session!.user.role;
-  const staffChannel = getChannelFromRole(role);
-  let channel: Channel;
-  if (role === "STAFF") {
-    channel = channelParam === "VAT" || channelParam === "NON_VAT" ? channelParam : "VAT";
-  } else if (role === "OWNER" || role === "SUPER_ADMIN") {
-    channel = channelParam ?? "VAT";
-  } else {
-    channel = staffChannel ?? "VAT";
-  }
+  const channel: "VAT" = "VAT";
   await connectDB();
   const list = await ReturnModel.find({ shopId, channel })
     .populate("saleId", "invoiceNumber")
@@ -46,12 +34,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { saleId, items, reason, refundMethod, channel: bodyChannel } = body;
 
-  let staffChannel: Channel | null = getChannelFromRole(role);
-  if (role === "STAFF") {
-    staffChannel = bodyChannel === "VAT" || bodyChannel === "NON_VAT" ? bodyChannel : "VAT";
-  }
+  const staffChannel = getChannelFromRole(role);
   if (!staffChannel) {
-    return Response.json({ error: "Only VAT or Non-VAT staff can process returns" }, { status: 403 });
+    return Response.json({ error: "Only VAT staff can process returns" }, { status: 403 });
   }
 
   if (!saleId || !mongoose.Types.ObjectId.isValid(saleId)) {
@@ -62,7 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   await connectDB();
-  const sale = await Sale.findOne({ _id: saleId, shopId, channel: staffChannel });
+  const sale = await Sale.findOne({ _id: saleId, shopId, channel: "VAT" });
   if (!sale) return Response.json({ error: "Sale not found" }, { status: 404 });
 
   let totalAmount = 0;
@@ -101,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   const returnDoc = await ReturnModel.create({
     shopId,
-    channel: staffChannel,
+    channel: "VAT",
     saleId,
     returnNumber,
     reason: reason?.trim(),

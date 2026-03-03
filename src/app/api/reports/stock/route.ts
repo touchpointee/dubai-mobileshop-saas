@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
 
   await connectDB();
 
-  // Shared stock - one list for all products in the shop
-  const list = await Product.find({ shopId, isActive: true })
+  // VAT-only: stock report shows only VAT channel products
+  const list = await Product.find({ shopId, isActive: true, channel: "VAT" })
     .sort({ name: 1 })
     .lean();
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   const role = session.user.role;
-  const isShopStaff = role === "VAT_SHOP_STAFF" || role === "NON_VAT_SHOP_STAFF";
+  const isShopStaff = role === "VAT_SHOP_STAFF";
 
   let payloadProducts = products;
   if (isShopStaff) {

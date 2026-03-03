@@ -10,7 +10,7 @@ export default async function VatLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user || (session.user.role !== "VAT_STAFF" && session.user.role !== "OWNER")) {
+  if (!session?.user || session.user.role !== "VAT_STAFF") {
     redirect("/login");
   }
   return (

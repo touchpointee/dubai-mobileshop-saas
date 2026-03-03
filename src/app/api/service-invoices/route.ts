@@ -8,7 +8,6 @@ import { Product } from "@/models/Product";
 import { ProductBatch } from "@/models/ProductBatch";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import { CHANNELS } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
@@ -40,11 +39,11 @@ export async function POST(request: NextRequest) {
   if (Array.isArray(items) && items.length > 0) {
     for (const it of items) {
       const { productId, productName, quantity, unitPrice, channel } = it;
-      if (!productId || !channel || !CHANNELS.includes(channel)) continue;
+      if (!productId || channel !== "VAT") continue;
       const qty = Number(quantity) || 0;
       const price = Number(unitPrice) || 0;
       if (qty <= 0) continue;
-      const product = await Product.findOne({ _id: productId, shopId, channel });
+      const product = await Product.findOne({ _id: productId, shopId, channel: "VAT" });
       if (!product) continue;
       const available = product.quantity ?? 0;
       if (available < qty) {
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
         productName: product.name,
         quantity: qty,
         unitPrice: price,
-        channel,
+        channel: "VAT",
       });
       partsSubtotal += qty * price;
     }

@@ -8,7 +8,7 @@ export async function GET() {
   await connectDB();
   const list = await User.find({
     shopId,
-    role: { $in: ["VAT_STAFF", "NON_VAT_STAFF"] },
+    role: { $in: ["VAT_STAFF"] },
     isActive: true,
   })
     .select("name email role")
