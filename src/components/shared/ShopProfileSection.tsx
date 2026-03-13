@@ -52,15 +52,15 @@ export function ShopProfileSection() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title={t("shopProfile") || "Company profile"}
-        description={t("shopProfileDescription") || "Set the company name shown on printed barcodes and receipts."}
+        title={t("shopProfile")}
+        description={t("shopProfileDescription")}
       />
       <form
         onSubmit={handleSubmit}
         className="mx-6 mb-6 rounded-xl border border-slate-200 bg-white p-4 space-y-3"
       >
         <div className="space-y-1.5 max-w-md">
-          <Label htmlFor="shop-name">{tForms("companyName") || "Company name"}</Label>
+          <Label htmlFor="shop-name">{tForms("companyName") || t("shopName")}</Label>
           <Input
             id="shop-name"
             value={name}
