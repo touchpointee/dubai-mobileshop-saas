@@ -49,16 +49,19 @@ export function BarcodeLabel({
 
   const handlePrint = useReactToPrint({
     contentRef: ref,
-    documentTitle: `Barcode-${barcode}`,
+    documentTitle: barcode,
     onAfterPrint: onPrintComplete,
     pageStyle: `
       @page { size: 40mm 25mm; margin: 0; }
       @media print {
+        * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
         html, body {
           margin: 0 !important;
           padding: 0 !important;
           width: 40mm !important;
           height: 25mm !important;
+          min-width: 40mm !important;
+          max-width: 40mm !important;
           min-height: 25mm !important;
           max-height: 25mm !important;
           overflow: hidden !important;
@@ -67,6 +70,14 @@ export function BarcodeLabel({
           page-break-after: avoid;
           page-break-inside: avoid;
         }
+        body .barcode-print-box {
+          width: 40mm !important;
+          height: 25mm !important;
+          min-height: 25mm !important;
+          max-height: 25mm !important;
+          flex-shrink: 0 !important;
+        }
+        .barcode-label-header { display: none !important; }
       }
     `,
   });
@@ -84,10 +95,10 @@ export function BarcodeLabel({
 
   return (
     <>
-      {/* Printable area: shop name + product + price + barcode for small thermal printers */}
+      {/* Printable area: only this box is printed on all devices */}
       <div
         ref={ref}
-        className="bg-white p-1.5 text-black border border-slate-200 rounded-lg print:break-inside-avoid print:break-after-avoid flex flex-col justify-between"
+        className="barcode-print-box bg-white p-1.5 text-black border border-slate-200 rounded-lg print:break-inside-avoid print:break-after-avoid flex flex-col justify-between"
         style={{
           width: "40mm",
           height: "25mm",
@@ -96,7 +107,7 @@ export function BarcodeLabel({
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div className="flex flex-col items-center gap-0.5 mb-0.5">
+        <div className="barcode-label-header flex flex-col items-center gap-0.5 mb-0.5 print:hidden">
           {resolvedShopName && (
             <div className="text-center text-[9px] font-semibold text-slate-900 leading-tight truncate max-w-full">
               {resolvedShopName}

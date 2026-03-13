@@ -18,7 +18,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export function ShopProfileSection() {
   const t = useTranslations("pages");
   const tCommon = useTranslations("common");
-  const tForms = useTranslations("forms");
   const tErrors = useTranslations("errors");
   const { data: shop } = useSWR<ShopResponse>(SWR_KEY, fetcher);
   const [name, setName] = useState("");
@@ -60,7 +59,7 @@ export function ShopProfileSection() {
         className="mx-6 mb-6 rounded-xl border border-slate-200 bg-white p-4 space-y-3"
       >
         <div className="space-y-1.5 max-w-md">
-          <Label htmlFor="shop-name">{tForms("companyName") || t("shopName")}</Label>
+          <Label htmlFor="shop-name">{t("shopName")}</Label>
           <Input
             id="shop-name"
             value={name}
