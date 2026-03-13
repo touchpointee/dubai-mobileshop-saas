@@ -328,7 +328,9 @@
     "month9": "September",
     "month10": "October",
     "month11": "November",
-    "month12": "December"
+    "month12": "December",
+    "shopProfile": "Company profile",
+    "shopProfileDescription": "Set the company name shown on printed barcodes and receipts."
   },
   "forms": {
     "description": "Description",

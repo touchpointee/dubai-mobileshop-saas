@@ -15,11 +15,15 @@ export async function PUT(request: Request) {
   const { shopId, error } = await requireShopSession();
   if (error) return error;
   const body = await request.json().catch(() => ({}));
-  const { costCodeMap, costFalseCode } = body ?? {};
+  const { name, costCodeMap, costFalseCode } = body ?? {};
 
   await connectDB();
   const shop = await Shop.findById(shopId);
   if (!shop) return Response.json({ error: "Shop not found" }, { status: 404 });
+
+  if (typeof name === "string" && name.trim()) {
+    shop.name = name.trim();
+  }
 
   if (costCodeMap && typeof costCodeMap === "object") {
     const next: Record<string, string> = {};
