@@ -24,6 +24,8 @@ type Shop = {
   vatRate: number;
   currency: string;
   isActive: boolean;
+  costCodeMap?: Record<string, string>;
+  costFalseCode?: string;
 };
 
 type ShopForm = Omit<Shop, "_id" | "isActive">;
@@ -42,6 +44,19 @@ const emptyForm: ShopForm = {
   trnNumber: "",
   vatRate: 5,
   currency: "AED",
+  costCodeMap: {
+    "0": "",
+    "1": "",
+    "2": "",
+    "3": "",
+    "4": "",
+    "5": "",
+    "6": "",
+    "7": "",
+    "8": "",
+    "9": "",
+  },
+  costFalseCode: "",
 };
 
 function CopyUrlButton({ slug }: { slug: string }) {
@@ -98,6 +113,19 @@ export default function ShopsPage() {
       trnNumber: shop.trnNumber || "",
       vatRate: shop.vatRate,
       currency: shop.currency,
+      costCodeMap: {
+        "0": shop.costCodeMap?.["0"] ?? "",
+        "1": shop.costCodeMap?.["1"] ?? "",
+        "2": shop.costCodeMap?.["2"] ?? "",
+        "3": shop.costCodeMap?.["3"] ?? "",
+        "4": shop.costCodeMap?.["4"] ?? "",
+        "5": shop.costCodeMap?.["5"] ?? "",
+        "6": shop.costCodeMap?.["6"] ?? "",
+        "7": shop.costCodeMap?.["7"] ?? "",
+        "8": shop.costCodeMap?.["8"] ?? "",
+        "9": shop.costCodeMap?.["9"] ?? "",
+      },
+      costFalseCode: shop.costFalseCode ?? "",
     });
     setError("");
     setModalOpen(true);
@@ -116,10 +144,15 @@ export default function ShopsPage() {
     setError("");
     try {
       const url = editing ? `${API}/${editing._id}` : API;
+      const payload = {
+        ...form,
+        costCodeMap: form.costCodeMap,
+        costFalseCode: form.costFalseCode?.trim() ? form.costFalseCode.trim()[0] : "",
+      };
       const res = await fetch(url, {
         method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || tErrors("failedToSaveShop"));
@@ -329,6 +362,48 @@ export default function ShopsPage() {
                 value={form.currency}
                 onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
                 placeholder="AED"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <Label className="text-sm font-medium">{t("costCodeSettings")}</Label>
+            <p className="text-xs text-slate-500">
+              Each digit 0–9 maps to a letter. For example, if 1 = Q and 2 = E, then a cost of 21 becomes EQ.
+              When the selling price has more digits than the cost, extra positions on the left are filled with the false-code letter.
+            </p>
+            <div className="grid grid-cols-5 gap-2 max-w-xs">
+              {["0","1","2","3","4","5","6","7","8","9"].map((digit) => (
+                <div key={digit} className="space-y-1">
+                  <Label className="text-[10px] text-slate-500">Digit {digit}</Label>
+                  <Input
+                    maxLength={1}
+                    value={form.costCodeMap?.[digit] ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value.slice(-1);
+                      setForm((prev) => ({
+                        ...prev,
+                        costCodeMap: { ...(prev.costCodeMap ?? {}), [digit]: v },
+                      }));
+                    }}
+                    className="h-8 text-center text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 space-y-1 max-w-xs">
+              <Label className="text-[10px] text-slate-500">False code (padding)</Label>
+              <Input
+                maxLength={1}
+                value={form.costFalseCode ?? ""}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    costFalseCode: e.target.value.slice(-1),
+                  }))
+                }
+                className="h-8 w-20 text-center text-sm"
+                placeholder="-"
               />
             </div>
           </div>

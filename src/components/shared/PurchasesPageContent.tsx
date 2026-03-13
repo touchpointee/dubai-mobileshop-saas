@@ -99,7 +99,19 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
   const [addDealerSaving, setAddDealerSaving] = useState(false);
   const [addProductModalOpen, setAddProductModalOpen] = useState(false);
   const [addProductForRowIndex, setAddProductForRowIndex] = useState<number | null>(null);
-  const [addProductForm, setAddProductForm] = useState({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
+  const [addProductForm, setAddProductForm] = useState({
+    name: "",
+    nameAr: "",
+    brand: "",
+    model: "",
+    categoryId: "",
+    dealerId: "",
+    costPrice: "",
+    sellPrice: "",
+    minSellPrice: "",
+    barcode: "",
+    requiresImei: false,
+  });
   const [addProductSaving, setAddProductSaving] = useState(false);
 
   const [scanTargetRowIndex, setScanTargetRowIndex] = useState<number | null>(null);
@@ -199,7 +211,19 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
   function openAddProductModal(rowIndex: number) {
     setAddProductForRowIndex(rowIndex);
-    setAddProductForm((prev) => ({ name: "", categoryId: "", dealerId: dealerId || "", costPrice: "", sellPrice: "", requiresImei: false }));
+    setAddProductForm({
+      name: "",
+      nameAr: "",
+      brand: "",
+      model: "",
+      categoryId: "",
+      dealerId: dealerId || "",
+      costPrice: "",
+      sellPrice: "",
+      minSellPrice: "",
+      barcode: "",
+      requiresImei: false,
+    });
     setAddProductModalOpen(true);
   }
 
@@ -209,12 +233,17 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
     const name = addProductForm.name.trim();
     const costPrice = Number(addProductForm.costPrice);
     const sellPrice = Number(addProductForm.sellPrice);
+    const minSellPriceVal = addProductForm.minSellPrice === "" ? null : Number(addProductForm.minSellPrice);
     if (!name) {
       alert(tErrors("errorSavingProduct") || "Name is required");
       return;
     }
     if (Number.isNaN(costPrice) || Number.isNaN(sellPrice)) {
       alert(tErrors("errorSavingProduct") || "Cost and sell price are required");
+      return;
+    }
+    if (minSellPriceVal != null && !Number.isNaN(minSellPriceVal) && minSellPriceVal > sellPrice) {
+      alert(tErrors("minSellExceedsSell") || "Minimum selling price cannot exceed sell price");
       return;
     }
     setAddProductSaving(true);
@@ -228,6 +257,11 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
           dealerId: addProductForm.dealerId || undefined,
           costPrice,
           sellPrice,
+          nameAr: addProductForm.nameAr.trim() || undefined,
+          brand: addProductForm.brand.trim() || undefined,
+          model: addProductForm.model.trim() || undefined,
+          minSellPrice: minSellPriceVal != null && !Number.isNaN(minSellPriceVal) ? minSellPriceVal : undefined,
+          barcode: addProductForm.barcode.trim() || undefined,
           requiresImei: addProductForm.requiresImei,
         }),
       });
@@ -241,7 +275,19 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
         }
         setAddProductModalOpen(false);
         setAddProductForRowIndex(null);
-        setAddProductForm({ name: "", categoryId: "", dealerId: "", costPrice: "", sellPrice: "", requiresImei: false });
+        setAddProductForm({
+          name: "",
+          nameAr: "",
+          brand: "",
+          model: "",
+          categoryId: "",
+          dealerId: "",
+          costPrice: "",
+          sellPrice: "",
+          minSellPrice: "",
+          barcode: "",
+          requiresImei: false,
+        });
       } else {
         alert(data.error || tErrors("errorSavingProduct"));
       }
@@ -826,76 +872,78 @@ export function PurchasesPageContent({ channel }: { channel: Channel }) {
 
       <Modal open={addProductModalOpen} onClose={() => { setAddProductModalOpen(false); setAddProductForRowIndex(null); }} title={t("addProduct")}>
         <form onSubmit={handleAddProductSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="add-product-name">{tForms("name")} *</Label>
-            <Input
-              id="add-product-name"
-              className="mt-1.5"
-              value={addProductForm.name}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, name: e.target.value }))}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-product-category">{tTables("category")}</Label>
-            <CategoryCascadeSelect
-              categories={categories ?? []}
-              value={addProductForm.categoryId}
-              onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v }))}
-              placeholder={t("noneOption")}
-              noneLabel={t("noneOption")}
-              nextLevelLabel={t("subcategory")}
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-product-dealer">{tTables("dealer")}</Label>
-            <select
-              id="add-product-dealer"
-              className="mt-1.5 flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-              value={addProductForm.dealerId}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, dealerId: e.target.value }))}
-            >
-              <option value="">{t("noneOption")}</option>
-              {(dealers ?? []).map((d) => (
-                <option key={d._id} value={d._id}>{d.name}{d.phone ? ` — ${d.phone}` : ""}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="add-product-cost">{tForms("costPrice")} *</Label>
-            <Input
-              id="add-product-cost"
-              type="number"
-              step="0.01"
-              min="0"
-              className="mt-1.5"
-              value={addProductForm.costPrice}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, costPrice: e.target.value }))}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-product-sell">{tForms("sellPrice")} *</Label>
-            <Input
-              id="add-product-sell"
-              type="number"
-              step="0.01"
-              min="0"
-              className="mt-1.5"
-              value={addProductForm.sellPrice}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, sellPrice: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="add-product-imei"
-              checked={addProductForm.requiresImei}
-              onChange={(e) => setAddProductForm((f) => ({ ...f, requiresImei: e.target.checked }))}
-              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-            />
-            <Label htmlFor="add-product-imei" className="font-normal">{t("requireImei")}</Label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="add-product-name">{tForms("name")} *</Label>
+              <Input
+                id="add-product-name"
+                className="mt-1.5"
+                value={addProductForm.name}
+                onChange={(e) => setAddProductForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-product-category">{tTables("category")}</Label>
+              <CategoryCascadeSelect
+                categories={categories ?? []}
+                value={addProductForm.categoryId}
+                onChange={(v) => setAddProductForm((f) => ({ ...f, categoryId: v }))}
+                placeholder={t("noneOption")}
+                noneLabel={t("noneOption")}
+                nextLevelLabel={t("subcategory")}
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-product-dealer">{tTables("dealer")}</Label>
+              <select
+                id="add-product-dealer"
+                className="mt-1.5 flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                value={addProductForm.dealerId}
+                onChange={(e) => setAddProductForm((f) => ({ ...f, dealerId: e.target.value }))}
+              >
+                <option value="">{t("noneOption")}</option>
+                {(dealers ?? []).map((d) => (
+                  <option key={d._id} value={d._id}>{d.name}{d.phone ? ` — ${d.phone}` : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="add-product-cost">{tForms("costPrice")} *</Label>
+              <Input
+                id="add-product-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                className="mt-1.5"
+                value={addProductForm.costPrice}
+                onChange={(e) => setAddProductForm((f) => ({ ...f, costPrice: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-product-sell">{tForms("sellPrice")} *</Label>
+              <Input
+                id="add-product-sell"
+                type="number"
+                step="0.01"
+                min="0"
+                className="mt-1.5"
+                value={addProductForm.sellPrice}
+                onChange={(e) => setAddProductForm((f) => ({ ...f, sellPrice: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="add-product-imei"
+                checked={addProductForm.requiresImei}
+                onChange={(e) => setAddProductForm((f) => ({ ...f, requiresImei: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+              />
+              <Label htmlFor="add-product-imei" className="font-normal">{t("requireImei")}</Label>
+            </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="outline" onClick={() => { setAddProductModalOpen(false); setAddProductForRowIndex(null); }}>{tCommon("cancel")}</Button>

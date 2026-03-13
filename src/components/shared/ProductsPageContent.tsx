@@ -17,6 +17,7 @@ import { CategoryCascadeSelect } from "@/components/shared/CategoryCascadeSelect
 import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 import { BarcodeLabel } from "@/components/barcode/BarcodeLabel";
+import { encodeCostWithFalseCode } from "@/lib/cost-code";
 
 type Product = {
   _id: string;
@@ -82,6 +83,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const { data: products, isLoading } = useSWR<Product[]>(swrKey, swrFetcher);
   const { data: categories } = useSWR<ProductCategory[]>("/api/product-categories", swrFetcher);
   const { data: dealers } = useSWR<Dealer[]>("/api/dealers", swrFetcher);
+  const { data: shop } = useSWR<{ name?: string; costCodeMap?: Record<string, string>; costFalseCode?: string }>("/api/shop", swrFetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -672,10 +674,22 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       <Modal open={!!printBarcodeProduct} onClose={() => setPrintBarcodeProduct(null)} title={t("printBarcode")}>
         {printBarcodeProduct && (
           <div className="flex flex-col items-center gap-4 py-4">
+            {(() => {
+              const costCode =
+                shop && typeof printBarcodeProduct.costPrice === "number" && typeof printBarcodeProduct.sellPrice === "number"
+                  ? encodeCostWithFalseCode({
+                      costPrice: printBarcodeProduct.costPrice,
+                      sellPrice: printBarcodeProduct.sellPrice,
+                      costCodeMap: shop.costCodeMap,
+                      falseCode: shop.costFalseCode,
+                    })
+                  : null;
+              return (
             <BarcodeLabel
               barcode={printBarcodeProduct.barcode || `BC-${printBarcodeProduct._id}`}
               productName={printBarcodeProduct.name}
               price={printBarcodeProduct.sellPrice}
+              costCode={costCode ?? undefined}
               trigger={(onClick) => (
                 <Button onClick={onClick}>
                   <Printer size={16} className="mr-2" />
@@ -683,6 +697,8 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
                 </Button>
               )}
             />
+              );
+            })()}
           </div>
         )}
       </Modal>

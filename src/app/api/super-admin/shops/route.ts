@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   const { error } = await requireSuperAdmin();
   if (error) return error;
   const body = await request.json();
-  const { name, nameAr, slug: rawSlug, address, phone, trnNumber, vatRate, currency } = body;
+  const { name, nameAr, slug: rawSlug, address, phone, trnNumber, vatRate, currency, costCodeMap, costFalseCode } = body;
   if (!name || typeof name !== "string" || !name.trim()) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
     vatRate: typeof vatRate === "number" ? vatRate : 5,
     currency: currency?.trim() || "AED",
     isActive: true,
+    costCodeMap: costCodeMap && typeof costCodeMap === "object" ? costCodeMap : undefined,
+    costFalseCode: typeof costFalseCode === "string" && costFalseCode.trim() ? costFalseCode.trim()[0] : undefined,
   });
   return Response.json(shop);
 }

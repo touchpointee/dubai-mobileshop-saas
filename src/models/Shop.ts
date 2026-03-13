@@ -19,6 +19,12 @@ const shopSchema = new Schema(
     currency: { type: String, default: "AED" },
     vatRate: { type: Number, default: 5 },
     isActive: { type: Boolean, default: true },
+    costCodeMap: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
+    costFalseCode: { type: String },
   },
   { timestamps: true }
 );

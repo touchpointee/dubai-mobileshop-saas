@@ -32,7 +32,7 @@ export async function PUT(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { name, nameAr, slug: rawSlug, address, phone, trnNumber, vatRate, currency, isActive } = body;
+  const { name, nameAr, slug: rawSlug, address, phone, trnNumber, vatRate, currency, isActive, costCodeMap, costFalseCode } = body;
   await connectDB();
   const shop = await Shop.findById(id);
   if (!shop) return Response.json({ error: "Shop not found" }, { status: 404 });
@@ -60,6 +60,13 @@ export async function PUT(
   if (typeof vatRate === "number") shop.vatRate = vatRate;
   if (currency !== undefined) shop.currency = String(currency).trim();
   if (typeof isActive === "boolean") shop.isActive = isActive;
+  if (costCodeMap !== undefined && typeof costCodeMap === "object") {
+    shop.costCodeMap = costCodeMap;
+  }
+  if (costFalseCode !== undefined) {
+    const v = typeof costFalseCode === "string" ? costFalseCode.trim() : "";
+    shop.costFalseCode = v ? v[0] : undefined;
+  }
   await shop.save();
   return Response.json(shop);
 }
