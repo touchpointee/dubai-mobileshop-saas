@@ -52,7 +52,7 @@ export function BarcodeLabel({
     documentTitle: barcode,
     onAfterPrint: onPrintComplete,
     pageStyle: `
-      @page { size: 40mm 25mm; margin: 0; }
+      @page { size: 40mm 25mm; margin: 0; margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0; }
       @media print {
         * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
         html, body {
@@ -77,7 +77,6 @@ export function BarcodeLabel({
           max-height: 25mm !important;
           flex-shrink: 0 !important;
         }
-        .barcode-label-header { display: none !important; }
       }
     `,
   });
@@ -107,7 +106,7 @@ export function BarcodeLabel({
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div className="barcode-label-header flex flex-col items-center gap-0.5 mb-0.5 print:hidden">
+        <div className="barcode-label-header flex flex-col items-center gap-0.5 mb-0.5">
           {resolvedShopName && (
             <div className="text-center text-[9px] font-semibold text-slate-900 leading-tight truncate max-w-full">
               {resolvedShopName}

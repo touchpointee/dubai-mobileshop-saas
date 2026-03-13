@@ -685,6 +685,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
                     })
                   : null;
               return (
+            <>
             <BarcodeLabel
               barcode={printBarcodeProduct.barcode || `BC-${printBarcodeProduct._id}`}
               productName={printBarcodeProduct.name}
@@ -697,6 +698,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
                 </Button>
               )}
             />
+            </>
               );
             })()}
           </div>
