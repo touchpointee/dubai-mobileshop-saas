@@ -52,18 +52,18 @@ export function BarcodeLabel({
     documentTitle: barcode,
     onAfterPrint: onPrintComplete,
     pageStyle: `
-      @page { size: 40mm 25mm; margin: 0; margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0; }
+      @page { size: 40mm 20mm; margin: 0; margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0; }
       @media print {
         * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
         html, body {
           margin: 0 !important;
           padding: 0 !important;
           width: 40mm !important;
-          height: 25mm !important;
+          height: 20mm !important;
           min-width: 40mm !important;
           max-width: 40mm !important;
-          min-height: 25mm !important;
-          max-height: 25mm !important;
+          min-height: 20mm !important;
+          max-height: 20mm !important;
           overflow: hidden !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -72,9 +72,9 @@ export function BarcodeLabel({
         }
         body .barcode-print-box {
           width: 40mm !important;
-          height: 25mm !important;
-          min-height: 25mm !important;
-          max-height: 25mm !important;
+          height: 20mm !important;
+          min-height: 20mm !important;
+          max-height: 20mm !important;
           flex-shrink: 0 !important;
           padding: 1mm !important;
           justify-content: flex-start !important;
@@ -113,9 +113,9 @@ export function BarcodeLabel({
         className="barcode-print-box bg-white p-1.5 text-black border border-slate-200 rounded-lg print:break-inside-avoid print:break-after-avoid flex flex-col justify-between"
         style={{
           width: "40mm",
-          height: "25mm",
-          minHeight: "25mm",
-          maxHeight: "25mm",
+          height: "20mm",
+          minHeight: "20mm",
+          maxHeight: "20mm",
           fontFamily: "system-ui, sans-serif",
         }}
       >
