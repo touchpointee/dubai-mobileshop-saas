@@ -76,6 +76,19 @@ export function BarcodeLabel({
           min-height: 25mm !important;
           max-height: 25mm !important;
           flex-shrink: 0 !important;
+          padding: 1mm !important;
+          justify-content: flex-start !important;
+          gap: 0 !important;
+        }
+        body .barcode-label-header {
+          margin-bottom: 0.5mm !important;
+        }
+        body .barcode-svg-wrap {
+          margin-top: 0.5mm !important;
+          margin-bottom: 0.5mm !important;
+        }
+        body .barcode-number-line {
+          margin-top: 0 !important;
         }
       }
     `,
@@ -128,12 +141,12 @@ export function BarcodeLabel({
           )}
         </div>
         <div
-          className="flex justify-center items-center mt-0.5"
+          className="barcode-svg-wrap flex justify-center items-center mt-0.5"
           style={{ height: "12mm" }}
         >
           <svg ref={svgRef} />
         </div>
-        <div className="mt-0.5 flex items-center justify-center text-[10px] text-slate-700 font-mono">
+        <div className="barcode-number-line mt-0.5 flex items-center justify-center text-[10px] text-slate-700 font-mono">
           <span>{barcode}</span>
           {costCode && (
             <>
