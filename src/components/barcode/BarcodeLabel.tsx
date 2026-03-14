@@ -7,12 +7,162 @@ import JsBarcode from "jsbarcode";
 import { formatCurrency } from "@/lib/utils";
 import { swrFetcher } from "@/lib/swr-fetcher";
 
+export type BarcodeFormat = "CODE128" | "EAN13" | "CODE39" | "EAN8";
+
+export type LabelConfig = {
+  width: number;
+  height: number;
+  showShopName: boolean;
+  showProductName: boolean;
+  showPrice: boolean;
+  showBarcode: boolean;
+  showBarcodeNumber: boolean;
+  showBorders: boolean;
+  productNameSize: number;
+  priceSize: number;
+  barcodeHeight: number;
+  barcodeFormat: BarcodeFormat;
+};
+
+export const defaultLabelConfig: LabelConfig = {
+  width: 38,
+  height: 26,
+  showShopName: true,
+  showProductName: true,
+  showPrice: true,
+  showBarcode: true,
+  showBarcodeNumber: true,
+  showBorders: false,
+  productNameSize: 8,
+  priceSize: 9,
+  barcodeHeight: 26,
+  barcodeFormat: "CODE128",
+};
+
+type LabelContentProps = {
+  barcode: string;
+  productName?: string;
+  price?: number;
+  shopName?: string;
+  costCode?: string;
+  config: LabelConfig;
+};
+
+export function BarcodeLabelContent({
+  barcode,
+  productName,
+  price,
+  shopName,
+  costCode,
+  config,
+}: LabelContentProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (!svgRef.current || !config.showBarcode) return;
+    const value = barcode || "00000000";
+    try {
+      JsBarcode(svgRef.current, value, {
+        format: config.barcodeFormat,
+        width: 1.0,
+        height: config.barcodeHeight,
+        displayValue: false,
+        margin: 0,
+      });
+    } catch {
+      try {
+        JsBarcode(svgRef.current, value, {
+          format: "CODE128",
+          width: 1.0,
+          height: config.barcodeHeight,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch {
+        // ignore invalid barcode string
+      }
+    }
+  }, [barcode, config.showBarcode, config.barcodeFormat, config.barcodeHeight]);
+
+  return (
+    <div
+      className={`barcode-print-box bg-white text-black flex flex-col${config.showBorders ? " border border-slate-400" : ""}`}
+      style={{
+        width: `${config.width}mm`,
+        height: `${config.height}mm`,
+        minWidth: `${config.width}mm`,
+        maxWidth: `${config.width}mm`,
+        minHeight: `${config.height}mm`,
+        maxHeight: `${config.height}mm`,
+        fontFamily: "system-ui, sans-serif",
+        padding: "1mm",
+        boxSizing: "border-box",
+        overflow: "hidden",
+        justifyContent: "space-between",
+      }}
+    >
+      <div className="flex flex-col items-center" style={{ gap: "0.5px" }}>
+        {config.showShopName && shopName && (
+          <div
+            className="text-center font-semibold text-slate-900 leading-tight truncate max-w-full"
+            style={{ fontSize: `${Math.max(6, config.productNameSize - 1)}px` }}
+          >
+            {shopName}
+          </div>
+        )}
+        {config.showProductName && productName && (
+          <div
+            className="text-center text-slate-800 leading-tight max-w-full"
+            style={{ fontSize: `${config.productNameSize}px`, wordBreak: "break-word" }}
+          >
+            {productName}
+          </div>
+        )}
+        {config.showPrice && price != null && (
+          <div
+            className="text-center text-slate-900 font-bold leading-tight"
+            style={{ fontSize: `${config.priceSize}px` }}
+          >
+            {formatCurrency(price)}
+          </div>
+        )}
+      </div>
+
+      {config.showBarcode && (
+        <div
+          className="flex justify-center items-center flex-1 overflow-hidden"
+          style={{ minHeight: 0 }}
+        >
+          <svg ref={svgRef} style={{ maxWidth: "100%", display: "block" }} />
+        </div>
+      )}
+
+      {config.showBarcodeNumber && (
+        <div
+          className="flex items-center justify-center text-slate-700 font-mono leading-none"
+          style={{ fontSize: "6.5px" }}
+        >
+          <span>{barcode}</span>
+          {costCode && (
+            <>
+              <span className="mx-0.5 text-slate-400">|</span>
+              <span className="font-semibold">{costCode}</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type BarcodeLabelProps = {
   barcode: string;
   productName?: string;
   price?: number;
   shopName?: string;
   costCode?: string;
+  config?: LabelConfig;
+  copies?: number;
   onPrintComplete?: () => void;
   trigger: (onClick: () => void) => React.ReactNode;
 };
@@ -23,72 +173,44 @@ export function BarcodeLabel({
   price,
   shopName,
   costCode,
+  config = defaultLabelConfig,
+  copies = 1,
   onPrintComplete,
   trigger,
 }: BarcodeLabelProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-
   const { data: shop } = useSWR<{ name?: string }>("/api/shop", swrFetcher);
   const resolvedShopName = shopName ?? shop?.name ?? "";
-
-  useEffect(() => {
-    if (!barcode || !svgRef.current) return;
-    try {
-      JsBarcode(svgRef.current, barcode, {
-        format: "CODE128",
-        width: 1.0,
-        height: 26,
-        displayValue: false,
-        margin: 0,
-      });
-    } catch {
-      // Invalid barcode string - ignore
-    }
-  }, [barcode]);
 
   const handlePrint = useReactToPrint({
     contentRef: ref,
     documentTitle: barcode,
     onAfterPrint: onPrintComplete,
     pageStyle: `
-      @page { size: 40mm 25mm; margin: 0; margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0; }
+      @page {
+        size: ${config.width}mm ${config.height}mm;
+        margin: 0;
+      }
       @media print {
         * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
         html, body {
           margin: 0 !important;
           padding: 0 !important;
-          width: 40mm !important;
-          height: 25mm !important;
-          min-width: 40mm !important;
-          max-width: 40mm !important;
-          min-height: 25mm !important;
-          max-height: 25mm !important;
-          overflow: hidden !important;
+          width: ${config.width}mm !important;
+          height: ${config.height}mm !important;
+          min-width: ${config.width}mm !important;
+          max-width: ${config.width}mm !important;
+          min-height: ${config.height}mm !important;
+          max-height: ${config.height}mm !important;
+          overflow: visible !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
-          page-break-after: avoid;
+        }
+        .barcode-print-box {
+          page-break-after: always;
           page-break-inside: avoid;
-        }
-        body .barcode-print-box {
-          width: 40mm !important;
-          height: 25mm !important;
-          min-height: 25mm !important;
-          max-height: 25mm !important;
-          flex-shrink: 0 !important;
-          padding: 1mm !important;
-          justify-content: flex-start !important;
-          gap: 0 !important;
-        }
-        body .barcode-label-header {
-          margin-bottom: 0.5mm !important;
-        }
-        body .barcode-svg-wrap {
-          margin-top: 0.5mm !important;
-          margin-bottom: 0.5mm !important;
-        }
-        body .barcode-number-line {
-          margin-top: 0 !important;
+          width: ${config.width}mm !important;
+          height: ${config.height}mm !important;
         }
       }
     `,
@@ -107,53 +229,20 @@ export function BarcodeLabel({
 
   return (
     <>
-      {/* Printable area: only this box is printed on all devices */}
-      <div
-        ref={ref}
-        className="barcode-print-box bg-white p-1.5 text-black border border-slate-200 rounded-lg print:break-inside-avoid print:break-after-avoid flex flex-col justify-between"
-        style={{
-          width: "40mm",
-          height: "25mm",
-          minHeight: "25mm",
-          maxHeight: "25mm",
-          fontFamily: "system-ui, sans-serif",
-        }}
-      >
-        <div className="barcode-label-header flex flex-col items-center gap-0.5 mb-0.5">
-          {resolvedShopName && (
-            <div className="text-center text-[9px] font-semibold text-slate-900 leading-tight truncate max-w-full">
-              {resolvedShopName}
-            </div>
-          )}
-          {(productName || price != null) && (
-            <div className="text-center leading-tight max-w-full">
-              {productName && (
-                <div className="text-[8px] text-slate-800 truncate max-w-full">
-                  {productName}
-                </div>
-              )}
-              {price != null && (
-                <div className="text-[8px] text-slate-700">
-                  {formatCurrency(price)}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <div
-          className="barcode-svg-wrap flex justify-center items-center mt-0.5"
-          style={{ height: "12mm" }}
-        >
-          <svg ref={svgRef} />
-        </div>
-        <div className="barcode-number-line mt-0.5 flex items-center justify-center text-[10px] text-slate-700 font-mono">
-          <span>{barcode}</span>
-          {costCode && (
-            <>
-              <span className="mx-1 text-slate-400">|</span>
-              <span className="text-[9px] font-semibold">{costCode}</span>
-            </>
-          )}
+      {/* Outer wrapper hides on screen; react-to-print clones only the inner ref div */}
+      <div aria-hidden="true" style={{ overflow: "hidden", height: 0, position: "absolute" }}>
+        <div ref={ref} style={{ width: `${config.width}mm` }}>
+          {Array.from({ length: copies }).map((_, i) => (
+            <BarcodeLabelContent
+              key={i}
+              barcode={barcode}
+              productName={productName}
+              price={price}
+              shopName={config.showShopName ? resolvedShopName : undefined}
+              costCode={costCode}
+              config={config}
+            />
+          ))}
         </div>
       </div>
       {trigger(handlePrintClick)}
