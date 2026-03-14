@@ -32,7 +32,7 @@ export async function PUT(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive, barcode } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive, barcode, quantity } = body;
   await connectDB();
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
@@ -75,6 +75,9 @@ export async function PUT(
   if (typeof requiresImei === "boolean") product.requiresImei = requiresImei;
   if (typeof trackByBatch === "boolean") product.trackByBatch = trackByBatch;
   if (typeof isActive === "boolean") product.isActive = isActive;
+  if (typeof quantity === "number" && quantity >= 0 && !product.requiresImei) {
+    product.quantity = Math.floor(quantity);
+  }
   if (Object.prototype.hasOwnProperty.call(body, "barcode")) {
     product.barcode = barcode != null && typeof barcode === "string" && barcode.trim() ? barcode.trim() : undefined;
   }
@@ -96,6 +99,9 @@ export async function DELETE(
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
   product.isActive = false;
+  // Clear barcode on soft-delete so the unique index frees up the value
+  // and the same barcode can be assigned to a new product
+  product.barcode = undefined;
   await product.save();
   return Response.json({ success: true });
 }

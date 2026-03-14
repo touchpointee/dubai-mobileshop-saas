@@ -55,6 +55,7 @@ const emptyForm = {
   requiresImei: false,
   barcode: "",
   startingStock: "",
+  stockQty: "",
 };
 
 function QtyBadge({ qty }: { qty: number }) {
@@ -161,6 +162,7 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       requiresImei: Boolean(p.requiresImei),
       barcode: p.barcode ?? "",
       startingStock: "",
+      stockQty: String(p.quantity ?? 0),
     });
     setModalOpen(true);
   }
@@ -203,6 +205,9 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         trackByBatch: true,
         barcode: form.barcode?.trim() || undefined,
         ...(startingStockVal !== undefined ? { startingStock: startingStockVal } : {}),
+        ...(editing && !form.requiresImei && form.stockQty !== ""
+          ? { quantity: Math.max(0, Math.floor(Number(form.stockQty))) }
+          : {}),
       };
       const res = await fetch(url, {
         method,
@@ -542,6 +547,20 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
               <Label htmlFor="pr-minSell">{tForms("minSellPrice")}</Label>
               <Input id="pr-minSell" className="mt-1.5" type="number" step="0.01" min="0" value={form.minSellPrice} onChange={(e) => setForm((f) => ({ ...f, minSellPrice: e.target.value }))} placeholder={t("optional")} />
             </div>
+            {editing && !form.requiresImei && (
+              <div>
+                <Label htmlFor="pr-stockQty">Stock Quantity</Label>
+                <Input
+                  id="pr-stockQty"
+                  className="mt-1.5"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.stockQty}
+                  onChange={(e) => setForm((f) => ({ ...f, stockQty: e.target.value }))}
+                />
+              </div>
+            )}
             {!editing && (
               <div>
                 <Label htmlFor="pr-startingStock">{t("startingStock")}</Label>

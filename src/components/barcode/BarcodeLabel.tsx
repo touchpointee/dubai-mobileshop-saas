@@ -217,6 +217,9 @@ export function BarcodeLabel({
           height: ${config.height}mm !important;
           ${config.rotate180 ? "transform: rotate(180deg); transform-origin: center;" : ""}
         }
+        .barcode-print-box:last-child {
+          page-break-after: avoid;
+        }
       }
     `,
   });

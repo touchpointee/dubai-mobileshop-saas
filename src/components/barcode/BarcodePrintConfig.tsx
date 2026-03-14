@@ -183,6 +183,9 @@ export function BarcodePrintConfig({ product, open, onClose }: Props) {
           height: ${config.height}mm !important;
           ${config.rotate180 ? "transform: rotate(180deg); transform-origin: center;" : ""}
         }
+        .barcode-print-box:last-child {
+          page-break-after: avoid;
+        }
       }
     `,
     onAfterPrint: onClose,
@@ -259,12 +262,15 @@ export function BarcodePrintConfig({ product, open, onClose }: Props) {
             <div>
               <Label className="text-xs text-slate-600">Copies</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="mt-1 h-8 text-sm"
-                min={1}
-                max={100}
                 value={copies}
-                onChange={(e) => setCopies(Math.max(1, Math.min(100, Number(e.target.value))))}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setCopies(val === "" ? 1 : Math.max(1, Math.min(100, Number(val))));
+                }}
               />
             </div>
           </section>

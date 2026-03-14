@@ -103,21 +103,52 @@ export async function POST(request: NextRequest) {
   }
   if (dealerId && mongoose.Types.ObjectId.isValid(dealerId)) productData.dealerId = new mongoose.Types.ObjectId(dealerId);
   if (minSell != null) productData.minSellPrice = minSell;
-  if (barcode != null && typeof barcode === "string" && barcode.trim()) {
-    productData.barcode = barcode.trim();
+  const barcodeValue = barcode != null && typeof barcode === "string" && barcode.trim()
+    ? barcode.trim()
+    : null;
+
+  if (barcodeValue) {
+    // Check for active product with this barcode
+    const activeConflict = await Product.findOne({ shopId, barcode: barcodeValue, isActive: true });
+    if (activeConflict) {
+      return Response.json(
+        { error: `Barcode "${barcodeValue}" is already used by: ${(activeConflict as { name?: string }).name ?? "another product"}` },
+        { status: 400 }
+      );
+    }
+    // Clear barcode from any previously soft-deleted product so the unique index is freed
+    await Product.updateMany({ shopId, barcode: barcodeValue, isActive: false }, { $unset: { barcode: "" } });
+    productData.barcode = barcodeValue;
   } else if (!requiresImeiVal) {
     productData.barcode = await generateUniqueBarcodeForShop(async (code) => {
-      const existing = await Product.findOne({ shopId, barcode: code });
-      return !!existing;
+      const exists = await Product.findOne({ shopId, barcode: code });
+      return !!exists;
     });
   }
-  
+
   // Use collection.insertOne directly to ensure id is included (bypasses Mongoose schema issues)
   const db = mongoose.connection.db;
   if (!db) throw new Error("Database not connected");
   const collection = db.collection("products");
-  const result = await collection.insertOne(productData);
-  const insertedId = result.insertedId;
+
+  let insertedId: mongoose.Types.ObjectId;
+  try {
+    const result = await collection.insertOne(productData);
+    insertedId = result.insertedId;
+  } catch (err: unknown) {
+    const mongoErr = err as { code?: number; keyPattern?: Record<string, unknown> };
+    if (mongoErr?.code === 11000) {
+      if (mongoErr.keyPattern?.barcode) {
+        return Response.json({ error: `Barcode "${productData.barcode}" is already used by another product.` }, { status: 400 });
+      }
+      if (mongoErr.keyPattern?.id) {
+        return Response.json({ error: "Duplicate product ID, please try again." }, { status: 400 });
+      }
+      return Response.json({ error: "A duplicate value conflict occurred. Please check your inputs." }, { status: 400 });
+    }
+    throw err;
+  }
+
   const trackByBatchVal = productData.trackByBatch === true;
   if (startingQty > 0 && trackByBatchVal && !requiresImeiVal) {
     await ProductBatch.create({
