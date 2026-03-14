@@ -181,6 +181,7 @@ export function BarcodePrintConfig({ product, open, onClose }: Props) {
           page-break-inside: avoid;
           width: ${config.width}mm !important;
           height: ${config.height}mm !important;
+          ${config.rotate180 ? "transform: rotate(180deg); transform-origin: center;" : ""}
         }
       }
     `,
@@ -355,6 +356,30 @@ export function BarcodePrintConfig({ product, open, onClose }: Props) {
               max={50}
               onChange={(v) => updateConfig({ barcodeHeight: v })}
             />
+            <RangeSlider
+              label="Barcode number & code"
+              value={config.barcodeNumberSize}
+              min={5}
+              max={14}
+              onChange={(v) => updateConfig({ barcodeNumberSize: v })}
+            />
+          </section>
+
+          {/* Printer */}
+          <section className="space-y-2">
+            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              Printer
+            </h3>
+            <ToggleSwitch
+              label="Rotate 180° (EPL driver)"
+              checked={config.rotate180}
+              onChange={(v) => updateConfig({ rotate180: v })}
+            />
+            {config.rotate180 && (
+              <p className="text-[10px] text-teal-700 bg-teal-50 rounded px-2 py-1.5 leading-snug">
+                Enable this if your Zebra / EPL printer prints upside down. The preview will look flipped but the physical label will be correct.
+              </p>
+            )}
           </section>
 
           <Button className="w-full" onClick={handlePrintClick}>
@@ -368,7 +393,10 @@ export function BarcodePrintConfig({ product, open, onClose }: Props) {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-4">
             Preview
           </p>
-          <div className="shadow-md ring-1 ring-slate-200">
+          <div
+            className="shadow-md ring-1 ring-slate-200"
+            style={config.rotate180 ? { transform: "rotate(180deg)" } : undefined}
+          >
             <BarcodeLabelContent
               barcode={barcode}
               productName={product.name}

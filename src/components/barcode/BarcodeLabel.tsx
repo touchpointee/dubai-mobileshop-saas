@@ -21,7 +21,9 @@ export type LabelConfig = {
   productNameSize: number;
   priceSize: number;
   barcodeHeight: number;
+  barcodeNumberSize: number;
   barcodeFormat: BarcodeFormat;
+  rotate180: boolean;
 };
 
 export const defaultLabelConfig: LabelConfig = {
@@ -36,7 +38,9 @@ export const defaultLabelConfig: LabelConfig = {
   productNameSize: 8,
   priceSize: 9,
   barcodeHeight: 26,
+  barcodeNumberSize: 7,
   barcodeFormat: "CODE128",
+  rotate180: false,
 };
 
 type LabelContentProps = {
@@ -140,7 +144,7 @@ export function BarcodeLabelContent({
       {config.showBarcodeNumber && (
         <div
           className="flex items-center justify-center text-slate-700 font-mono leading-none"
-          style={{ fontSize: "6.5px" }}
+          style={{ fontSize: `${config.barcodeNumberSize}px` }}
         >
           <span>{barcode}</span>
           {costCode && (
@@ -211,6 +215,7 @@ export function BarcodeLabel({
           page-break-inside: avoid;
           width: ${config.width}mm !important;
           height: ${config.height}mm !important;
+          ${config.rotate180 ? "transform: rotate(180deg); transform-origin: center;" : ""}
         }
       }
     `,
