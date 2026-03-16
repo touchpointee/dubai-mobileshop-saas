@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { swrFetcher } from "@/lib/swr-fetcher";
-import { Plus, Pencil, Trash2, Barcode, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Barcode, Printer, Filter, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Modal } from "@/components/ui/modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -101,6 +101,11 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
   const [startingStockImeis, setStartingStockImeis] = useState<string[]>([]);
   const [scanImeiValue, setScanImeiValue] = useState("");
   const scanImeiInputRef = useRef<HTMLInputElement>(null);
+  const [nameSearch, setNameSearch] = useState("");
+  const [barcodeSearch, setBarcodeSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [dealerFilter, setDealerFilter] = useState("");
 
   useEffect(() => {
     if (modalOpen && !editing && form.requiresImei) {
@@ -342,6 +347,27 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
 
   if (isLoading) return <PageSkeleton />;
 
+  const activeFilterCount = [categoryFilter, dealerFilter].filter(Boolean).length;
+  const filteredProducts = (products ?? []).filter((p) => {
+    const normalizedNameSearch = nameSearch.trim().toLowerCase();
+    const normalizedBarcodeSearch = barcodeSearch.trim().toLowerCase();
+    const dealerId = typeof p.dealerId === "object" && p.dealerId ? p.dealerId._id : p.dealerId;
+
+    const matchesName =
+      normalizedNameSearch.length === 0 ||
+      p.name.toLowerCase().includes(normalizedNameSearch) ||
+      (p.nameAr ?? "").toLowerCase().includes(normalizedNameSearch) ||
+      (p.brand ?? "").toLowerCase().includes(normalizedNameSearch) ||
+      (p.model ?? "").toLowerCase().includes(normalizedNameSearch);
+    const matchesBarcode =
+      normalizedBarcodeSearch.length === 0 ||
+      (p.barcode ?? "").toLowerCase().includes(normalizedBarcodeSearch);
+    const matchesCategory = !categoryFilter || p.categoryId === categoryFilter;
+    const matchesDealer = !dealerFilter || dealerId === dealerFilter;
+
+    return matchesName && matchesBarcode && matchesCategory && matchesDealer;
+  });
+
   const columns = [
     { key: "name", header: tForms("name") },
     {
@@ -421,7 +447,77 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       </PageHeader>
 
       <div className="px-6 pb-6">
-        <DataTable columns={columns} data={products ?? []} emptyMessage={t("emptyProductsYet")} />
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <Input
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+              placeholder={t("searchByName")}
+            />
+            <Input
+              value={barcodeSearch}
+              onChange={(e) => setBarcodeSearch(e.target.value)}
+              placeholder={t("searchByBarcode")}
+            />
+            <Button
+              type="button"
+              variant={showFilters || activeFilterCount > 0 ? "secondary" : "outline"}
+              className="w-full lg:w-auto"
+              onClick={() => setShowFilters((prev) => !prev)}
+            >
+              <Filter size={16} className="mr-1.5" />
+              {t("filters")}
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </Button>
+          </div>
+
+          {showFilters && (
+            <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 md:grid-cols-2">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              >
+                <option value="">{t("allCategories")}</option>
+                {(categories ?? []).map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex gap-3">
+                <select
+                  value={dealerFilter}
+                  onChange={(e) => setDealerFilter(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                >
+                  <option value="">{t("allDealers")}</option>
+                  {(dealers ?? []).map((dealer) => (
+                    <option key={dealer._id} value={dealer._id}>
+                      {dealer.name}
+                    </option>
+                  ))}
+                </select>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setCategoryFilter("");
+                    setDealerFilter("");
+                  }}
+                  disabled={activeFilterCount === 0}
+                >
+                  <X size={16} className="mr-1.5" />
+                  {t("clearFilters")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DataTable columns={columns} data={filteredProducts} emptyMessage={t("emptyProductsYet")} />
       </div>
 
       {/* Add dealer modal (from product form) - higher z-index so it appears above product modal */}
