@@ -75,15 +75,9 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret });
 
   if (isAdminSubdomain(host)) {
-    if (!token) {
-      const locale = pathname.split("/").filter(Boolean)[0];
-      const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
-      const loginUrl = new URL(`${prefix}/login`, request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    if (token.role !== "SUPER_ADMIN") {
+    // Edge middleware might return null for token even if valid. 
+    // Let layout.tsx handle the strict redirect when no token is found.
+    if (token && token.role !== "SUPER_ADMIN") {
       const locale = pathname.split("/").filter(Boolean)[0];
       const prefix = locale && ["en", "ar"].includes(locale) ? `/${locale}` : "";
       return NextResponse.redirect(new URL(`${prefix}/login`, request.url));
