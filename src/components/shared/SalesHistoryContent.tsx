@@ -11,6 +11,7 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ThermalReceipt } from "@/components/receipts/ThermalReceipt";
 import { printA4InvoicePdf } from "@/components/receipts/A4Invoice";
+import type { ThermalPrintSettings } from "@/components/receipts/ThermalReceipt";
 import type { Channel } from "@/lib/constants";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -36,7 +37,8 @@ type FullSale = SaleListItem & {
   paidAmount: number;
   changeAmount: number;
   channel: "VAT" | "NON_VAT";
-  shopId?: { name?: string; address?: string; phone?: string; trnNumber?: string };
+  shopId?: { name?: string; address?: string; phone?: string; trnNumber?: string; printSettings?: ThermalPrintSettings };
+  hasMarginSchemeItems?: boolean;
 };
 
 function shopFromSale(sale: FullSale) {
@@ -46,6 +48,7 @@ function shopFromSale(sale: FullSale) {
     address: s?.address ?? "",
     phone: s?.phone ?? "",
     trnNumber: s?.trnNumber ?? "",
+    printSettings: s?.printSettings,
   };
 }
 
@@ -144,6 +147,8 @@ export function SalesHistoryContent({
                   changeAmount={fullSale.changeAmount}
                   payments={fullSale.payments}
                   channel={fullSale.channel}
+                  hasMarginSchemeItems={fullSale.hasMarginSchemeItems}
+                  printSettings={shop.printSettings}
                   onPrintComplete={() => {}}
                   trigger={(onClick) => (
                     <Button type="button" size="sm" variant="outline" onClick={onClick}>
@@ -194,6 +199,8 @@ export function SalesHistoryContent({
             changeAmount: fullSale.changeAmount,
             payments: fullSale.payments,
             channel: fullSale.channel,
+            hasMarginSchemeItems: fullSale.hasMarginSchemeItems,
+            paperSize: shop.printSettings?.a4PaperSize,
           };
           return (
             <div className="flex gap-2">

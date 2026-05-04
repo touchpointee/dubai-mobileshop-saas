@@ -5,6 +5,7 @@ const productImeiSchema = new Schema(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     imei: { type: String, required: true },
     imei2: { type: String },
     status: { type: String, enum: IMEI_STATUSES, default: "IN_STOCK", index: true },
@@ -15,6 +16,7 @@ const productImeiSchema = new Schema(
 );
 
 productImeiSchema.index({ imei: 1 }, { unique: true });
+productImeiSchema.index({ shopId: 1, branchId: 1, status: 1 });
 
 export const ProductImei = models.ProductImei ?? model("ProductImei", productImeiSchema);
 export type ProductImeiDocument = mongoose.InferSchemaType<typeof productImeiSchema> & mongoose.Document;

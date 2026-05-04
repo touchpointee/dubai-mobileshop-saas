@@ -16,7 +16,7 @@ export async function GET(
   }
   await connectDB();
   const sale = await Sale.findOne({ _id: id, shopId })
-    .populate("shopId", "name address phone trnNumber")
+    .populate("shopId", "name address phone trnNumber printSettings")
     .lean();
   if (!sale) return Response.json({ error: "Sale not found" }, { status: 404 });
   return Response.json(sale);

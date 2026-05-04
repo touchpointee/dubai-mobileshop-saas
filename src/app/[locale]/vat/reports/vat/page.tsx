@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
@@ -17,6 +18,9 @@ type VatRow = {
   date: string;
   vatableAmount: number;
   vatAmount: number;
+  normalVatAmount: number;
+  marginSchemeVatAmount: number;
+  hasMarginSchemeItems: boolean;
   total: number;
 };
 
@@ -24,9 +28,15 @@ type VatReport = {
   rows: VatRow[];
   totalVatable: number;
   totalVat: number;
+  totalNormalVat: number;
+  totalMarginSchemeVat: number;
   totalSales: number;
+  marginSchemeInvoiceCount: number;
   invoiceCount: number;
 };
+
+type Branch = { _id: string; name: string; isActive?: boolean };
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function VatReportPage() {
   const t = useTranslations("pages");
@@ -38,13 +48,16 @@ export default function VatReportPage() {
     return d.toISOString().slice(0, 10);
   });
   const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [branchId, setBranchId] = useState("");
   const [data, setData] = useState<VatReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const { data: branches = [] } = useSWR<Branch[]>("/api/branches", fetcher);
 
   async function loadReport() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ from, to });
+      if (branchId) params.set("branchId", branchId);
       const res = await fetch(`/api/reports/vat?${params}`);
       if (res.ok) {
         setData(await res.json());
@@ -67,6 +80,16 @@ export default function VatReportPage() {
       key: "vatableAmount",
       header: t("totalVatable"),
       render: (r: VatRow) => formatCurrency(r.vatableAmount),
+    },
+    {
+      key: "normalVatAmount",
+      header: "Normal VAT",
+      render: (r: VatRow) => formatCurrency(r.normalVatAmount),
+    },
+    {
+      key: "marginSchemeVatAmount",
+      header: "Margin VAT",
+      render: (r: VatRow) => formatCurrency(r.marginSchemeVatAmount),
     },
     {
       key: "vatAmount",
@@ -113,6 +136,21 @@ export default function VatReportPage() {
             {loading && <Loader2 size={16} className="mr-2 animate-spin" />}
             {t("loadReport")}
           </Button>
+          {branches.length > 0 && (
+            <div>
+              <Label className="mb-1 block text-xs text-slate-500">Branch</Label>
+              <select
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                className="flex h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              >
+                <option value="">All branches</option>
+                {branches.filter((b) => b.isActive !== false).map((branch) => (
+                  <option key={branch._id} value={branch._id}>{branch.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {data && (
@@ -133,6 +171,21 @@ export default function VatReportPage() {
               <StatCard
                 title={t("invoices")}
                 value={data.invoiceCount}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatCard
+                title="Normal VAT"
+                value={formatCurrency(data.totalNormalVat)}
+              />
+              <StatCard
+                title="Margin Scheme VAT"
+                value={formatCurrency(data.totalMarginSchemeVat)}
+              />
+              <StatCard
+                title="Margin Scheme Invoices"
+                value={data.marginSchemeInvoiceCount}
               />
             </div>
 

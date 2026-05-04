@@ -10,6 +10,7 @@ import { Dealer } from "@/models/Dealer";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
+import { resolveBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -21,8 +22,13 @@ export async function GET(request: NextRequest) {
   if (error) return error;
   const channel: "VAT" = "VAT";
   await connectDB();
-  const list = await Purchase.find({ shopId, channel })
+  const branchParam = request.nextUrl.searchParams.get("branchId");
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const match: Record<string, unknown> = { shopId, channel };
+  if (branchId) match.branchId = branchId;
+  const list = await Purchase.find(match)
     .populate("dealerId", "name phone")
+    .populate("branchId", "name code")
     .sort({ purchaseDate: -1 })
     .lean();
   return Response.json(list);
@@ -36,14 +42,15 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT staff can create purchases" }, { status: 403 });
   }
   const body = await request.json();
-  const { dealerId, items, notes, purchaseDate: purchaseDateInput, invoiceNumber: bodyInvoiceNumber } = body;
-  if (!dealerId || !mongoose.Types.ObjectId.isValid(dealerId)) {
-    return Response.json({ error: "Valid dealer is required" }, { status: 400 });
+  const { dealerId, customerId, isMarginScheme, items, notes, purchaseDate: purchaseDateInput, invoiceNumber: bodyInvoiceNumber, branchId: bodyBranchId } = body;
+  if ((!dealerId || !mongoose.Types.ObjectId.isValid(dealerId)) && (!customerId || !mongoose.Types.ObjectId.isValid(customerId))) {
+    return Response.json({ error: "Valid dealer or customer is required" }, { status: 400 });
   }
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "At least one item is required" }, { status: 400 });
   }
   await connectDB();
+  const branchId = await resolveBranchId(shopId!, bodyBranchId);
 
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;
@@ -119,8 +126,11 @@ export async function POST(request: NextRequest) {
   const anyApplyVat = purchaseItems.some((i) => i.applyVat);
   const createPayload: Record<string, unknown> = {
     shopId,
+    branchId,
     channel: "VAT",
-    dealerId,
+    dealerId: dealerId ? dealerId : undefined,
+    customerId: customerId ? customerId : undefined,
+    isMarginScheme: Boolean(isMarginScheme),
     invoiceNumber,
     items: purchaseItems,
     totalAmount: totalExVat,
@@ -139,7 +149,9 @@ export async function POST(request: NextRequest) {
   }
   const purchase = await Purchase.create(createPayload);
 
-  await Dealer.findByIdAndUpdate(dealerId, { $inc: { balance: grandTotal } });
+  if (dealerId) {
+    await Dealer.findByIdAndUpdate(dealerId, { $inc: { balance: grandTotal } });
+  }
 
   for (let i = 0; i < purchaseItems.length; i++) {
     const item = purchaseItems[i];
@@ -149,6 +161,7 @@ export async function POST(request: NextRequest) {
         await ProductBatch.create({
           productId: product._id,
           shopId,
+          branchId,
           channel: "VAT",
           quantity: item.quantity,
           costPrice: item.costPrice,
@@ -165,6 +178,7 @@ export async function POST(request: NextRequest) {
           await ProductImei.create({
             productId: product._id,
             shopId,
+            branchId,
             imei: trimmed,
             status: "IN_STOCK",
             purchaseId: purchase._id,
@@ -176,6 +190,7 @@ export async function POST(request: NextRequest) {
 
   const populated = await Purchase.findById(purchase._id)
     .populate("dealerId", "name phone")
+    .populate("branchId", "name code")
     .lean();
   return Response.json(populated);
 }

@@ -4,6 +4,7 @@ import { SERVICE_JOB_STATUSES } from "@/lib/constants";
 const serviceJobSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
     customerName: { type: String, required: true },
     customerPhone: { type: String },

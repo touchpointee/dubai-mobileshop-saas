@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
+import { resolveBranchId } from "@/lib/branches";
 
 type StockRow = {
   _id: unknown;
@@ -13,8 +15,12 @@ type StockRow = {
   quantity: number;
   requiresImei?: boolean;
   imeiCount?: number;
+  aged30Count?: number;
+  aged60Count?: number;
+  oldestStockAgeDays?: number;
   costPrice: number;
   sellPrice: number;
+  createdAt?: Date;
 };
 
 function getStockQty(p: StockRow): number {
@@ -26,6 +32,9 @@ export async function GET(request: NextRequest) {
   if (error) return error;
 
   await connectDB();
+  const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
+  const branchParam = request.nextUrl.searchParams.get("branchId");
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
 
   // VAT-only: stock report shows only VAT channel products
   const list = await Product.find({ shopId, isActive: true, channel: "VAT" })
@@ -33,6 +42,10 @@ export async function GET(request: NextRequest) {
     .lean();
 
   const products = list as unknown as (StockRow & { _id: { toString(): string } })[];
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const aged30Cutoff = new Date(now - 30 * oneDayMs);
+  const aged60Cutoff = new Date(now - 60 * oneDayMs);
 
   const requireImeiIds = products
     .filter((p) => p.requiresImei)
@@ -40,22 +53,55 @@ export async function GET(request: NextRequest) {
 
   if (requireImeiIds.length > 0) {
     const counts = await ProductImei.aggregate([
-      { $match: { productId: { $in: requireImeiIds }, status: "IN_STOCK" } },
-      { $group: { _id: "$productId", count: { $sum: 1 } } },
+      { $match: { shopId: shopObjectId, productId: { $in: requireImeiIds }, status: "IN_STOCK", ...(branchId ? { branchId } : {}) } },
+      {
+        $group: {
+          _id: "$productId",
+          count: { $sum: 1 },
+          aged30Count: { $sum: { $cond: [{ $lte: ["$createdAt", aged30Cutoff] }, 1, 0] } },
+          aged60Count: { $sum: { $cond: [{ $lte: ["$createdAt", aged60Cutoff] }, 1, 0] } },
+          oldestCreatedAt: { $min: "$createdAt" },
+        },
+      },
     ]);
-    const countMap: Record<string, number> = {};
-    for (const c of counts) countMap[c._id.toString()] = c.count;
+    const countMap: Record<string, { count: number; aged30Count: number; aged60Count: number; oldestCreatedAt?: Date }> = {};
+    for (const c of counts) {
+      countMap[c._id.toString()] = {
+        count: c.count ?? 0,
+        aged30Count: c.aged30Count ?? 0,
+        aged60Count: c.aged60Count ?? 0,
+        oldestCreatedAt: c.oldestCreatedAt,
+      };
+    }
     for (const p of products) {
-      if (p.requiresImei) p.imeiCount = countMap[p._id.toString()] ?? 0;
+      if (!p.requiresImei) continue;
+      const aging = countMap[p._id.toString()];
+      p.imeiCount = aging?.count ?? 0;
+      p.aged30Count = aging?.aged30Count ?? 0;
+      p.aged60Count = aging?.aged60Count ?? 0;
+      p.oldestStockAgeDays = aging?.oldestCreatedAt
+        ? Math.max(0, Math.floor((now - new Date(aging.oldestCreatedAt).getTime()) / oneDayMs))
+        : 0;
     }
   }
 
   let totalQuantity = 0;
   let totalValue = 0;
+  let aged30Units = 0;
+  let aged60Units = 0;
   for (const p of products) {
     const qty = getStockQty(p);
+    if (!p.requiresImei) {
+      const createdAt = p.createdAt ? new Date(p.createdAt) : null;
+      const ageDays = createdAt ? Math.max(0, Math.floor((now - createdAt.getTime()) / oneDayMs)) : 0;
+      p.oldestStockAgeDays = qty > 0 ? ageDays : 0;
+      p.aged30Count = qty > 0 && createdAt && createdAt <= aged30Cutoff ? qty : 0;
+      p.aged60Count = qty > 0 && createdAt && createdAt <= aged60Cutoff ? qty : 0;
+    }
     totalQuantity += qty;
     totalValue += (p.costPrice ?? 0) * qty;
+    aged30Units += p.aged30Count ?? 0;
+    aged60Units += p.aged60Count ?? 0;
   }
 
   const role = session.user.role;
@@ -69,9 +115,11 @@ export async function GET(request: NextRequest) {
     }) as (StockRow & { _id: { toString(): string } })[];
   }
 
-  const summary: { totalProducts: number; totalQuantity: number; totalValue?: number } = {
+  const summary: { totalProducts: number; totalQuantity: number; aged30Units: number; aged60Units: number; totalValue?: number } = {
     totalProducts: products.length,
     totalQuantity,
+    aged30Units,
+    aged60Units,
   };
   if (!isShopStaff) summary.totalValue = totalValue;
 

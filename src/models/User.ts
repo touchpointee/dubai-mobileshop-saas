@@ -4,6 +4,7 @@ import { ROLES } from "@/lib/constants";
 const userSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop" },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch" },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },

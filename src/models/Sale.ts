@@ -9,8 +9,15 @@ const saleItemSubSchema = new Schema(
     unitPrice: { type: Number, required: true },
     discount: { type: Number, default: 0 },
     totalPrice: { type: Number, required: true },
+    costAmount: { type: Number, default: 0 },
     imeiId: { type: Schema.Types.ObjectId, ref: "ProductImei" },
     imei: { type: String },
+    isMarginScheme: { type: Boolean, default: false },
+    marginCost: { type: Number, default: 0 },
+    marginProfit: { type: Number, default: 0 },
+    marginVatAmount: { type: Number, default: 0 },
+    taxableAmount: { type: Number, default: 0 },
+    normalVatAmount: { type: Number, default: 0 },
   },
   { _id: true }
 );
@@ -19,6 +26,8 @@ const salePaymentSubSchema = new Schema(
   {
     paymentMethodId: { type: Schema.Types.ObjectId, ref: "PaymentMethod", required: true },
     methodName: { type: String, required: true },
+    methodType: { type: String },
+    provider: { type: String },
     amount: { type: Number, required: true },
     reference: { type: String },
   },
@@ -28,6 +37,7 @@ const salePaymentSubSchema = new Schema(
 const saleSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     channel: { type: String, enum: CHANNELS, required: true, index: true },
     invoiceNumber: { type: String, required: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
@@ -42,9 +52,12 @@ const saleSchema = new Schema(
     vatableAmount: { type: Number, default: 0 },
     vatRate: { type: Number, default: 0 },
     vatAmount: { type: Number, default: 0 },
+    normalVatAmount: { type: Number, default: 0 },
+    marginSchemeVatAmount: { type: Number, default: 0 },
     grandTotal: { type: Number, required: true },
     paidAmount: { type: Number, default: 0 },
     changeAmount: { type: Number, default: 0 },
+    hasMarginSchemeItems: { type: Boolean, default: false },
     status: { type: String, enum: SALE_STATUSES, default: "COMPLETED" },
     notes: { type: String },
     soldBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -56,6 +69,7 @@ const saleSchema = new Schema(
 saleSchema.index({ invoiceNumber: 1 }, { unique: true });
 saleSchema.index({ shopId: 1, saleDate: -1 });
 saleSchema.index({ shopId: 1, channel: 1, saleDate: -1 });
+saleSchema.index({ shopId: 1, branchId: 1, saleDate: -1 });
 
 export const Sale = models.Sale ?? model("Sale", saleSchema);
 export type SaleDocument = mongoose.InferSchemaType<typeof saleSchema> & mongoose.Document;

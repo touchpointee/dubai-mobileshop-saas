@@ -5,6 +5,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PaymentMethodsSection } from "@/components/shared/PaymentMethodsSection";
 import { ShopCostCodeSection } from "@/components/shared/ShopCostCodeSection";
 import { ShopProfileSection } from "@/components/shared/ShopProfileSection";
+import { ShopCustomizationSection } from "@/components/shared/ShopCustomizationSection";
+import { BranchManagementSection } from "@/components/shared/BranchManagementSection";
+import { ShiftCloseSection } from "@/components/shared/ShiftCloseSection";
 
 export default function VatSettingsPage() {
   const t = useTranslations("pages");
@@ -13,6 +16,9 @@ export default function VatSettingsPage() {
       <PageHeader title={t("settings")} description={t("managePaymentMethods")} />
       <div className="space-y-6">
         <ShopProfileSection />
+        <BranchManagementSection />
+        <ShiftCloseSection />
+        <ShopCustomizationSection />
         <ShopCostCodeSection />
         <PaymentMethodsSection />
       </div>

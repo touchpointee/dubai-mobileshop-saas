@@ -9,6 +9,7 @@ import { ProductBatch } from "@/models/ProductBatch";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, setCounterIfHigher, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
+import { resolveBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -19,9 +20,14 @@ export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const channel: "VAT" = "VAT";
+  const branchParam = request.nextUrl.searchParams.get("branchId");
   await connectDB();
-  const list = await Sale.find({ shopId, channel })
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const match: Record<string, unknown> = { shopId, channel };
+  if (branchId) match.branchId = branchId;
+  const list = await Sale.find(match)
     .populate("soldBy", "name")
+    .populate("branchId", "name code")
     .sort({ saleDate: -1 })
     .limit(500)
     .lean();
@@ -42,6 +48,7 @@ export async function POST(request: NextRequest) {
     discountValue,
     payments,
     notes,
+    branchId: bodyBranchId,
     channel: bodyChannel,
   } = body;
 
@@ -61,6 +68,7 @@ export async function POST(request: NextRequest) {
   }
 
   await connectDB();
+  const branchId = await resolveBranchId(shopId!, bodyBranchId);
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
   const vatRate = shop?.vatRate ?? 5;
 
@@ -72,8 +80,15 @@ export async function POST(request: NextRequest) {
     unitPrice: number;
     discount: number;
     totalPrice: number;
+    costAmount?: number;
     imeiId?: mongoose.Types.ObjectId;
     imei?: string;
+    isMarginScheme?: boolean;
+    marginCost?: number;
+    marginProfit?: number;
+    marginVatAmount?: number;
+    taxableAmount?: number;
+    normalVatAmount?: number;
   }[] = [];
 
   for (const item of items) {
@@ -101,8 +116,16 @@ export async function POST(request: NextRequest) {
   } else if (discountType === "FIXED" && discountValue > 0) {
     discountAmount = Number(discountValue);
   }
-  for (const saleItem of saleItems) {
-    const product = await Product.findOne({ _id: saleItem.productId, shopId }).select("minSellPrice name").lean() as { minSellPrice?: number; name?: string } | null;
+  let hasMarginSchemeItems = false;
+  let totalVatAmount = 0;
+  let normalVatAmount = 0;
+  let marginSchemeVatAmount = 0;
+  let vatableAmount = 0;
+
+  for (let i = 0; i < saleItems.length; i++) {
+    const saleItem = saleItems[i];
+    const product = await Product.findOne({ _id: saleItem.productId, shopId }).select("minSellPrice name costPrice isMarginScheme").lean() as { minSellPrice?: number; name?: string; costPrice?: number; isMarginScheme?: boolean } | null;
+    
     const minSell = product?.minSellPrice;
     if (minSell != null && minSell > 0 && subtotal > 0) {
       const allocatedDiscount = (saleItem.totalPrice / subtotal) * discountAmount;
@@ -115,26 +138,76 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    let itemVat = 0;
+    const allocatedDiscount = subtotal > 0 ? (saleItem.totalPrice / subtotal) * discountAmount : 0;
+    const effectiveLineTotal = saleItem.totalPrice - allocatedDiscount;
+
+    if (product?.isMarginScheme) {
+      hasMarginSchemeItems = true;
+      
+      const costAmount = (product.costPrice || 0) * saleItem.quantity;
+      const marginProfit = Math.max(0, effectiveLineTotal - costAmount);
+      
+      if (marginProfit > 0 && vatRate > 0) {
+        itemVat = (marginProfit * vatRate) / (100 + vatRate);
+      }
+      const taxableAmount = Math.max(0, marginProfit - itemVat);
+      marginSchemeVatAmount += itemVat;
+      vatableAmount += taxableAmount;
+      saleItems[i] = {
+        ...saleItem,
+        isMarginScheme: true,
+        costAmount,
+        marginCost: costAmount,
+        marginProfit,
+        marginVatAmount: itemVat,
+        taxableAmount,
+        normalVatAmount: 0,
+      };
+    } else {
+      if (vatRate > 0) {
+        itemVat = (effectiveLineTotal * vatRate) / (100 + vatRate);
+      }
+      const taxableAmount = Math.max(0, effectiveLineTotal - itemVat);
+      normalVatAmount += itemVat;
+      vatableAmount += taxableAmount;
+      saleItems[i] = {
+        ...saleItem,
+        isMarginScheme: false,
+        costAmount: (product?.costPrice || 0) * saleItem.quantity,
+        marginCost: 0,
+        marginProfit: 0,
+        marginVatAmount: 0,
+        taxableAmount,
+        normalVatAmount: itemVat,
+      };
+    }
+    totalVatAmount += itemVat;
   }
+
   const afterDiscount = subtotal - discountAmount;
-  // VAT-inclusive pricing: price already includes VAT, so grandTotal = afterDiscount
-  // Extract VAT from the total using: vatAmount = total * vatRate / (100 + vatRate)
   const grandTotal = afterDiscount;
-  const vatableAmount = grandTotal;
-  const vatAmount = vatRate > 0 ? (vatableAmount * vatRate) / (100 + vatRate) : 0;
+  const vatAmount = totalVatAmount;
 
   let paidAmount = 0;
   const PaymentMethodModel = (await import("@/models/PaymentMethod")).PaymentMethod;
-  const salePayments: { paymentMethodId: mongoose.Types.ObjectId; methodName: string; amount: number; reference?: string }[] = [];
+  const salePayments: { paymentMethodId: mongoose.Types.ObjectId; methodName: string; methodType?: string; provider?: string; amount: number; reference?: string }[] = [];
   for (const p of payments) {
-    const pm = await PaymentMethodModel.findById(p.paymentMethodId).select("name").lean() as { name?: string } | null;
+    const pm = await PaymentMethodModel.findById(p.paymentMethodId).select("name type provider requiresReference").lean() as { name?: string; type?: string; provider?: string; requiresReference?: boolean } | null;
     const amount = Number(p.amount);
+    const reference = typeof p.reference === "string" ? p.reference.trim() : "";
+    if (pm?.requiresReference && !reference) {
+      return Response.json({ error: `Reference is required for ${pm.name ?? "this payment method"}` }, { status: 400 });
+    }
     paidAmount += amount;
     salePayments.push({
       paymentMethodId: new mongoose.Types.ObjectId(p.paymentMethodId),
       methodName: pm?.name ?? "Unknown",
+      methodType: pm?.type,
+      provider: pm?.provider,
       amount,
-      reference: p.reference,
+      reference: reference || undefined,
     });
   }
 
@@ -144,6 +217,7 @@ export async function POST(request: NextRequest) {
 
   const salePayload = {
     shopId,
+    branchId,
     channel: "VAT",
     customerId: customerId ? new mongoose.Types.ObjectId(customerId) : undefined,
     customerName: customerName?.trim(),
@@ -157,9 +231,12 @@ export async function POST(request: NextRequest) {
     vatableAmount,
     vatRate,
     vatAmount,
+    normalVatAmount,
+    marginSchemeVatAmount,
     grandTotal,
     paidAmount,
     changeAmount: Math.max(0, paidAmount - grandTotal),
+    hasMarginSchemeItems,
     status: "COMPLETED" as const,
     notes: notes?.trim(),
     soldBy: session!.user.id,
@@ -218,7 +295,7 @@ export async function POST(request: NextRequest) {
     );
     if (item.imeiId) {
       await ProductImei.updateOne(
-        { _id: item.imeiId, shopId },
+        { _id: item.imeiId, shopId, branchId },
         { status: "SOLD", saleId: sale._id }
       );
     }
@@ -226,7 +303,8 @@ export async function POST(request: NextRequest) {
 
   const populated = await Sale.findById(sale._id)
     .populate("soldBy", "name")
+    .populate("branchId", "name code")
     .lean();
-  const shopData = await Shop.findById(shopId).select("name address phone trnNumber").lean();
+  const shopData = await Shop.findById(shopId).select("name address phone trnNumber printSettings").lean();
   return Response.json({ ...populated, shop: shopData });
 }

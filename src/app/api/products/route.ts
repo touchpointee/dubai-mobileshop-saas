@@ -8,6 +8,7 @@ import { getCategoryPathDisplayString } from "@/lib/category-path";
 import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
+import { resolveBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -18,8 +19,10 @@ export async function GET(request: NextRequest) {
   const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const role = session!.user.role;
+  const branchParam = request.nextUrl.searchParams.get("branchId");
 
   await connectDB();
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
   // Shared product list - VAT and Non-VAT see same catalog
   const list = await Product.find({ shopId, isActive: true })
     .populate("dealerId", "name phone")
@@ -29,7 +32,7 @@ export async function GET(request: NextRequest) {
   const requireImeiIds = listWithImei.filter((p) => p.requiresImei).map((p) => p._id);
   if (requireImeiIds.length > 0) {
     const counts = await ProductImei.aggregate([
-      { $match: { productId: { $in: requireImeiIds }, status: "IN_STOCK" } },
+      { $match: { shopId: new mongoose.Types.ObjectId(String(shopId)), productId: { $in: requireImeiIds }, status: "IN_STOCK", ...(branchId ? { branchId } : {}) } },
       { $group: { _id: "$productId", count: { $sum: 1 } } },
     ]);
     const countMap: Record<string, number> = {};
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Only VAT staff can add products" }, { status: 403 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode, startingStock } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, barcode, startingStock, condition, isMarginScheme, branchId: bodyBranchId } = body;
   if (!name || typeof name !== "string" || !name.trim()) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
@@ -72,6 +75,7 @@ export async function POST(request: NextRequest) {
       ? Math.floor(Number(startingStock))
       : 0;
   await connectDB();
+  const branchId = await resolveBranchId(shopId!, bodyBranchId);
   const productId = new mongoose.Types.ObjectId().toString();
   const productData: Record<string, unknown> = {
     id: productId,
@@ -90,6 +94,8 @@ export async function POST(request: NextRequest) {
   if (nameAr?.trim()) productData.nameAr = nameAr.trim();
   if (brand?.trim()) productData.brand = brand.trim();
   if (model?.trim()) productData.model = model.trim();
+  if (condition) productData.condition = condition;
+  if (isMarginScheme !== undefined) productData.isMarginScheme = isMarginScheme;
   if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
     productData.categoryId = new mongoose.Types.ObjectId(categoryId);
     const pathDisplay = await getCategoryPathDisplayString(categoryId, shopId);
@@ -154,6 +160,7 @@ export async function POST(request: NextRequest) {
     await ProductBatch.create({
       productId: insertedId,
       shopId: new mongoose.Types.ObjectId(shopId),
+      branchId,
       channel: "VAT",
       quantity: startingQty,
       costPrice: Number(costPrice),

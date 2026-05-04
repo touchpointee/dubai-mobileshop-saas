@@ -1,16 +1,21 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Sale } from "@/models/Sale";
+import { resolveBranchId } from "@/lib/branches";
 
 export async function GET(request: NextRequest) {
   const { shopId, error } = await requireShopSession();
   if (error) return error;
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
+  const branchParam = request.nextUrl.searchParams.get("branchId");
   await connectDB();
+  const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
 
   const match: Record<string, unknown> = { shopId, status: "COMPLETED", channel: "VAT" };
+  if (branchParam) match.branchId = await resolveBranchId(shopId!, branchParam);
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.$gte = new Date(from);
@@ -29,7 +34,7 @@ export async function GET(request: NextRequest) {
     .lean();
 
   const summary = await Sale.aggregate([
-    { $match: match },
+    { $match: { ...match, shopId: shopObjectId } },
     {
       $group: {
         _id: null,
@@ -40,8 +45,27 @@ export async function GET(request: NextRequest) {
     },
   ]);
 
+  const sales = list.map((sale) => {
+    const s = sale as unknown as {
+      _id: unknown;
+      invoiceNumber?: string;
+      saleDate?: Date;
+      channel?: string;
+      grandTotal?: number;
+      soldBy?: { name?: string };
+    };
+    return {
+      _id: String(s._id),
+      invoiceNumber: s.invoiceNumber ?? "",
+      date: s.saleDate,
+      channel: s.channel ?? "VAT",
+      total: s.grandTotal ?? 0,
+      soldBy: s.soldBy,
+    };
+  });
+
   return Response.json({
-    sales: list,
+    sales,
     totalSales: summary[0]?.totalSales ?? 0,
     vatCollected: summary[0]?.totalVat ?? 0,
     invoiceCount: summary[0]?.count ?? 0,

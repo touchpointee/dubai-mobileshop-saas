@@ -5,6 +5,7 @@ const productBatchSchema = new Schema(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     channel: { type: String, enum: CHANNELS, required: true, index: true },
     quantity: { type: Number, required: true, default: 0 },
     costPrice: { type: Number, required: true },

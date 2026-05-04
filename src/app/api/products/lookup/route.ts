@@ -4,6 +4,7 @@ import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
 import type { Channel } from "@/lib/constants";
+import { resolveBranchId } from "@/lib/branches";
 
 export async function GET(request: NextRequest) {
   const { shopId, error } = await requireShopSession();
@@ -11,16 +12,19 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const channel = searchParams.get("channel") as Channel | null;
+  const branchParam = searchParams.get("branchId");
   if (!code || !code.trim()) {
     return Response.json({ error: "code is required" }, { status: 400 });
   }
   const trimmed = code.trim();
   await connectDB();
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
 
   // 1. Try IMEI lookup
   const imeiDocRaw = await ProductImei.findOne({
     imei: trimmed,
     status: "IN_STOCK",
+    ...(branchId ? { branchId } : {}),
   })
     .populate("productId")
     .lean();

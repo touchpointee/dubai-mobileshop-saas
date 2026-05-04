@@ -7,6 +7,10 @@ const customerSchema = new Schema(
     phone: { type: String },
     email: { type: String },
     address: { type: String },
+    emiratesId: { type: String },
+    passportNumber: { type: String },
+    documentFront: { type: String },
+    documentBack: { type: String },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

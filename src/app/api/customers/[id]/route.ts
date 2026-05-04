@@ -31,7 +31,7 @@ export async function PUT(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { name, phone, email, address, isActive } = body;
+  const { name, phone, email, address, isActive, emiratesId, passportNumber } = body;
   await connectDB();
   const customer = await Customer.findOne({ _id: id, shopId });
   if (!customer) return Response.json({ error: "Customer not found" }, { status: 404 });
@@ -39,6 +39,8 @@ export async function PUT(
   if (phone !== undefined) customer.phone = phone ? String(phone).trim() : undefined;
   if (email !== undefined) customer.email = email ? String(email).trim() : undefined;
   if (address !== undefined) customer.address = address ? String(address).trim() : undefined;
+  if (emiratesId !== undefined) customer.emiratesId = emiratesId ? String(emiratesId).trim() : undefined;
+  if (passportNumber !== undefined) customer.passportNumber = passportNumber ? String(passportNumber).trim() : undefined;
   if (typeof isActive === "boolean") customer.isActive = isActive;
   await customer.save();
   return Response.json(customer);

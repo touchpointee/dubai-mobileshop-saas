@@ -22,9 +22,12 @@ const purchaseItemSubSchema = new Schema(
 const purchaseSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     channel: { type: String, enum: CHANNELS, required: true },
-    dealerId: { type: Schema.Types.ObjectId, ref: "Dealer", required: true },
+    dealerId: { type: Schema.Types.ObjectId, ref: "Dealer" }, // Optional for Customer purchases
+    customerId: { type: Schema.Types.ObjectId, ref: "Customer" }, // For Trade-ins/Used buys
     invoiceNumber: { type: String, required: true },
+    isMarginScheme: { type: Boolean, default: false }, // Whole invoice under margin scheme
     items: [purchaseItemSubSchema],
     totalAmount: { type: Number, required: true },
     vatAmount: { type: Number, default: 0 },

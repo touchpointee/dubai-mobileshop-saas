@@ -18,12 +18,14 @@ type Customer = {
   phone?: string;
   email?: string;
   address?: string;
+  emiratesId?: string;
+  passportNumber?: string;
 };
 
 const SWR_KEY = "/api/customers";
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-const emptyForm = { name: "", phone: "", email: "", address: "" };
+const emptyForm = { name: "", phone: "", email: "", address: "", emiratesId: "", passportNumber: "" };
 
 export function CustomersPageContent() {
   const t = useTranslations("pages");
@@ -50,6 +52,8 @@ export function CustomersPageContent() {
       phone: c.phone ?? "",
       email: c.email ?? "",
       address: c.address ?? "",
+      emiratesId: c.emiratesId ?? "",
+      passportNumber: c.passportNumber ?? "",
     });
     setModalOpen(true);
   }
@@ -145,6 +149,17 @@ export function CustomersPageContent() {
             <div className="sm:col-span-2">
               <Label htmlFor="cu-address">{tForms("address")}</Label>
               <Input id="cu-address" className="mt-1.5" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+            </div>
+            <div className="sm:col-span-2 text-xs font-medium text-slate-500 uppercase tracking-wider mt-2 border-t pt-2">
+              Identity Verification (Dubai Police CID)
+            </div>
+            <div>
+              <Label htmlFor="cu-emiratesId">Emirates ID</Label>
+              <Input id="cu-emiratesId" className="mt-1.5" value={form.emiratesId} onChange={(e) => setForm((f) => ({ ...f, emiratesId: e.target.value }))} placeholder="784-XXXX-XXXXXXX-X" />
+            </div>
+            <div>
+              <Label htmlFor="cu-passport">Passport Number</Label>
+              <Input id="cu-passport" className="mt-1.5" value={form.passportNumber} onChange={(e) => setForm((f) => ({ ...f, passportNumber: e.target.value }))} placeholder="Optional" />
             </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">

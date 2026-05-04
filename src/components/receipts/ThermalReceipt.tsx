@@ -14,6 +14,16 @@ type SaleItem = {
 
 type SalePayment = { methodName: string; amount: number };
 
+export type ThermalPrintSettings = {
+  thermalPaperWidthMm?: number;
+  thermalMarginMm?: number;
+  thermalFontSizePx?: number;
+  receiptFooter?: string;
+  showTrnOnReceipt?: boolean;
+  defaultInvoiceLanguage?: "en" | "ar";
+  a4PaperSize?: "A4" | "A5";
+};
+
 type ThermalReceiptProps = {
   shopName: string;
   shopAddress?: string;
@@ -33,6 +43,8 @@ type ThermalReceiptProps = {
   changeAmount: number;
   payments: SalePayment[];
   channel: "VAT" | "NON_VAT";
+  hasMarginSchemeItems?: boolean;
+  printSettings?: ThermalPrintSettings;
   onPrintComplete?: () => void;
   trigger: (onClick: () => void) => React.ReactNode;
 };
@@ -56,10 +68,17 @@ export function ThermalReceipt({
   changeAmount,
   payments,
   channel,
+  hasMarginSchemeItems,
+  printSettings,
   onPrintComplete,
   trigger,
 }: ThermalReceiptProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const paperWidthMm = Math.min(110, Math.max(48, Number(printSettings?.thermalPaperWidthMm) || 80));
+  const marginMm = Math.min(10, Math.max(0, Number(printSettings?.thermalMarginMm) || 2));
+  const fontSizePx = Math.min(18, Math.max(9, Number(printSettings?.thermalFontSizePx) || 12));
+  const receiptFooter = printSettings?.receiptFooter?.trim() || "Thank you";
+  const showTrn = printSettings?.showTrnOnReceipt !== false;
 
   const handlePrintFromLib = useReactToPrint({
     contentRef: ref,
@@ -71,7 +90,7 @@ export function ThermalReceipt({
       }
     },
     pageStyle: `
-      @page { size: 80mm auto; margin: 2mm; }
+      @page { size: ${paperWidthMm}mm auto; margin: ${marginMm}mm; }
       @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     `,
   });
@@ -90,12 +109,17 @@ export function ThermalReceipt({
   return (
     <>
       {trigger(handlePrint)}
-      <div className="print-only-receipt" style={{ position: "absolute", left: "-9999px", top: 0, width: "80mm" }} aria-hidden="true">
-        <div ref={ref} className="bg-white p-2 text-black" style={{ width: "80mm", fontFamily: "monospace", fontSize: "12px" }}>
+      <div className="print-only-receipt" style={{ position: "absolute", left: "-9999px", top: 0, width: `${paperWidthMm}mm` }} aria-hidden="true">
+        <div ref={ref} className="bg-white p-2 text-black" style={{ width: `${paperWidthMm}mm`, fontFamily: "monospace", fontSize: `${fontSizePx}px` }}>
           <div className="text-center font-bold text-sm">{shopName}</div>
           {shopAddress && <div className="text-center text-xs">{shopAddress}</div>}
           {shopPhone && <div className="text-center text-xs">{shopPhone}</div>}
-          {channel === "VAT" && trnNumber && <div className="text-center text-xs">TRN: {trnNumber}</div>}
+          {channel === "VAT" && trnNumber && showTrn && <div className="text-center text-xs">TRN: {trnNumber}</div>}
+          {channel === "VAT" && hasMarginSchemeItems && (
+            <div className="text-center text-[10px] font-bold mt-1 border border-black p-0.5">
+              VAT ACCOUNTED FOR UNDER THE PROFIT MARGIN SCHEME
+            </div>
+          )}
           <div className="my-2 border-t border-dashed border-black" />
           <div className="flex justify-between text-xs">
             <span>Invoice: {invoiceNumber}</span>
@@ -126,7 +150,7 @@ export function ThermalReceipt({
               <span>-{formatCurrency(discountAmount)}</span>
             </div>
           )}
-          {channel === "VAT" && vatAmount > 0 && (
+          {channel === "VAT" && vatAmount > 0 && !hasMarginSchemeItems && (
             <div className="flex justify-between text-xs">
               <span>Incl. VAT ({vatRate}%)</span>
               <span>{formatCurrency(vatAmount)}</span>
@@ -158,7 +182,7 @@ export function ThermalReceipt({
             </div>
           )}
           <div className="my-2 border-t border-dashed border-black" />
-          <div className="text-center text-xs">Thank you</div>
+          <div className="text-center text-xs">{receiptFooter}</div>
         </div>
       </div>
     </>

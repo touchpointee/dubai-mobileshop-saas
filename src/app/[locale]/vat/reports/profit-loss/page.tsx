@@ -12,8 +12,10 @@ import { Loader2, Printer } from "lucide-react";
 type PnLData = {
   revenue: number;
   vatCollected: number;
+  cogs: number;
   expenses: number;
   grossProfit: number;
+  netProfit: number;
 };
 
 export default function ProfitLossPage() {
@@ -92,6 +94,11 @@ export default function ProfitLossPage() {
                 className="text-slate-500"
               />
               <Row
+                label="COGS"
+                value={`- ${formatCurrency(data.cogs)}`}
+                className="text-amber-600"
+              />
+              <Row
                 label={t("expensesLabel")}
                 value={`- ${formatCurrency(data.expenses)}`}
                 className="text-red-600"
@@ -106,6 +113,12 @@ export default function ProfitLossPage() {
                   }`}
                 >
                   {formatCurrency(data.grossProfit)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-6 py-5">
+                <span className="text-lg font-bold text-slate-900">Net Profit</span>
+                <span className={`text-2xl font-bold ${data.netProfit >= 0 ? "text-teal-600" : "text-red-600"}`}>
+                  {formatCurrency(data.netProfit)}
                 </span>
               </div>
             </div>

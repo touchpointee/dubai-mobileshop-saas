@@ -4,9 +4,10 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
+import { resolveBranchId } from "@/lib/branches";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { shopId, error } = await requireShopSession();
@@ -16,9 +17,11 @@ export async function GET(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   await connectDB();
+  const branchParam = request.nextUrl.searchParams.get("branchId");
+  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
-  const imeis = await ProductImei.find({ productId: id, shopId, status: "IN_STOCK" })
+  const imeis = await ProductImei.find({ productId: id, shopId, status: "IN_STOCK", ...(branchId ? { branchId } : {}) })
     .sort({ createdAt: 1 })
     .lean();
   return Response.json(imeis);
@@ -35,11 +38,12 @@ export async function POST(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { imei, imei2 } = body;
+  const { imei, imei2, branchId: bodyBranchId } = body;
   if (!imei || typeof imei !== "string" || !imei.trim()) {
     return Response.json({ error: "IMEI is required" }, { status: 400 });
   }
   await connectDB();
+  const branchId = await resolveBranchId(shopId!, bodyBranchId);
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
   const existing = await ProductImei.findOne({ imei: imei.trim() });
@@ -49,6 +53,7 @@ export async function POST(
   const imeiDoc = await ProductImei.create({
     productId: id,
     shopId,
+    branchId,
     imei: imei.trim(),
     imei2: imei2?.trim(),
     status: "IN_STOCK",

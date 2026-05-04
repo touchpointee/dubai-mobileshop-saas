@@ -1,4 +1,7 @@
 export { Shop } from "./Shop";
+export { Branch } from "./Branch";
+export { StockTransfer } from "./StockTransfer";
+export { Shift } from "./Shift";
 export { User } from "./User";
 export { Dealer } from "./Dealer";
 export { DealerPayment } from "./DealerPayment";

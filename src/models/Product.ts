@@ -22,6 +22,8 @@ const productSchema = new Schema(
     quantity: { type: Number, default: 0 },
     requiresImei: { type: Boolean, default: false },
     trackByBatch: { type: Boolean, default: false },
+    condition: { type: String, enum: ["NEW", "USED"], default: "NEW" },
+    isMarginScheme: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     barcode: { type: String, sparse: true },
   },

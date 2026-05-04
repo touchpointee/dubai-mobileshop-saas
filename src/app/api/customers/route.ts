@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const { shopId, error } = await requireShopSession();
   if (error) return error;
   const body = await request.json();
-  const { name, phone, email, address } = body;
+  const { name, phone, email, address, emiratesId, passportNumber } = body;
   if (!name || typeof name !== "string" || !name.trim()) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     phone: phone?.trim() || undefined,
     email: email?.trim() || undefined,
     address: address?.trim() || undefined,
+    emiratesId: emiratesId?.trim() || undefined,
+    passportNumber: passportNumber?.trim() || undefined,
     isActive: true,
   });
   return Response.json(customer);

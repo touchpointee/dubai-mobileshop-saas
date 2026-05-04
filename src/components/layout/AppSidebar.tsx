@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, getCsrfToken } from "next-auth/react";
 import { useTranslations, useLocale } from "next-intl";
+import useSWR from "swr";
 import type { Role } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/stores/navigation-store";
@@ -29,6 +30,7 @@ import {
   CreditCard,
   LogOut,
   Wrench,
+  Star,
 } from "lucide-react";
 
 const ICON_SIZE = 20;
@@ -37,6 +39,19 @@ type NavSection = {
   sectionKey: string;
   items: { href: string; labelKey: string; icon: React.ReactNode }[];
 };
+
+type ShopShortcut = {
+  label: string;
+  href: string;
+  enabled?: boolean;
+  order?: number;
+};
+
+type ShopSettings = {
+  adminShortcuts?: ShopShortcut[];
+};
+
+const fetcher = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : null));
 
 const NAV_BY_ROLE: Record<Role, NavSection[]> = {
   SUPER_ADMIN: [
@@ -135,6 +150,12 @@ export function AppSidebar({ role }: { role: Role }) {
   const sections = NAV_BY_ROLE[role];
   const setNavigating = useNavigationStore((s) => s.setNavigating);
   const roleLabelKey = `roleLabels.${role}` as "roleLabels.VAT_STAFF" | "roleLabels.NON_VAT_STAFF" | "roleLabels.STAFF" | "roleLabels.SUPER_ADMIN" | "roleLabels.VAT_SHOP_STAFF" | "roleLabels.NON_VAT_SHOP_STAFF";
+  const isShopAdmin = role === "VAT_STAFF";
+  const { data: shopSettings } = useSWR<ShopSettings | null>(isShopAdmin ? "/api/shop" : null, fetcher);
+  const shortcuts = (shopSettings?.adminShortcuts ?? [])
+    .filter((item) => item.enabled !== false && item.href?.startsWith("/"))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .slice(0, 8);
 
   return (
     <aside className="flex h-full min-h-0 w-72 shrink-0 flex-col border-e border-slate-200 bg-white">
@@ -150,6 +171,49 @@ export function AppSidebar({ role }: { role: Role }) {
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
         <div className="space-y-5">
+          {shortcuts.length > 0 && (
+            <div>
+              <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400" role="heading" aria-level={2}>
+                Shortcuts
+              </h2>
+              <div className="space-y-1">
+                {shortcuts.map((item) => {
+                  const localePath = `/${locale}${item.href}`;
+                  const isActive =
+                    pathname === localePath ||
+                    pathname?.startsWith(`${localePath}/`) ||
+                    pathname === item.href ||
+                    pathname?.startsWith(`${item.href}/`);
+                  const linkClassName = cn(
+                    "flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-amber-100 text-amber-800 font-bold cursor-default"
+                      : "font-medium text-slate-600 hover:bg-amber-50 hover:text-slate-900"
+                  );
+                  const icon = <Star size={16} className={isActive ? "text-amber-700" : "text-amber-500"} />;
+                  if (isActive) {
+                    return (
+                      <span key={`${item.href}-${item.label}`} aria-current="page" className={linkClassName}>
+                        {icon}
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={`${item.href}-${item.label}`}
+                      href={localePath}
+                      onClick={() => setNavigating(true)}
+                      className={linkClassName}
+                    >
+                      {icon}
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {sections.map((section) => (
             <div key={section.sectionKey}>
               <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400" role="heading" aria-level={2}>

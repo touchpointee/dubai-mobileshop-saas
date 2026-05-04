@@ -37,6 +37,9 @@ export type StockRow = {
   quantity: number;
   requiresImei?: boolean;
   imeiCount?: number;
+  aged30Count?: number;
+  aged60Count?: number;
+  oldestStockAgeDays?: number;
   costPrice: number;
   sellPrice: number;
 };
@@ -46,6 +49,8 @@ export type StockReport = {
   summary: {
     totalProducts: number;
     totalQuantity: number;
+    aged30Units: number;
+    aged60Units: number;
     totalValue: number;
   };
 };
@@ -59,6 +64,7 @@ export function getStockValue(p: StockRow): number {
 }
 
 type ChannelFilter = "VAT" | "ALL";
+type Branch = { _id: string; name: string; isDefault?: boolean; isActive?: boolean };
 
 export function StockReportContent({
   title = "Stock Report",
@@ -75,6 +81,8 @@ export function StockReportContent({
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
   const [channel, setChannel] = useState<ChannelFilter>(initialChannel);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [data, setData] = useState<StockReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<StockRow | null>(null);
@@ -82,6 +90,16 @@ export function StockReportContent({
   const [detailLoading, setDetailLoading] = useState(false);
 
   const effectiveChannel = showChannelSelector ? channel : initialChannel;
+
+  useEffect(() => {
+    fetch("/api/branches")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Branch[]) => {
+        const active = data.filter((b) => b.isActive !== false);
+        setBranches(active);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -104,6 +122,7 @@ export function StockReportContent({
     setLoading(true);
     try {
       const params = new URLSearchParams({ channel: effectiveChannel });
+      if (branchId) params.set("branchId", branchId);
       const res = await fetch(`/api/reports/stock?${params}`);
       if (res.ok) {
         setData(await res.json());
@@ -128,6 +147,9 @@ export function StockReportContent({
       tTables("cost"),
       tTables("price"),
       tTables("stockValue"),
+      "Oldest age",
+      "30+ days",
+      "60+ days",
     ];
     const rows = data.products.map((p) => {
       const qty = getStockQty(p);
@@ -143,6 +165,9 @@ export function StockReportContent({
         String(p.costPrice ?? 0),
         String(p.sellPrice ?? 0),
         String(value),
+        String(p.oldestStockAgeDays ?? 0),
+        String(p.aged30Count ?? 0),
+        String(p.aged60Count ?? 0),
       ];
     });
     const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
@@ -212,6 +237,31 @@ export function StockReportContent({
       header: tTables("stockValue"),
       render: (r: StockRow) => formatCurrency(getStockValue(r)),
     },
+    {
+      key: "oldestStockAgeDays",
+      header: "Age",
+      render: (r: StockRow) => {
+        const days = r.oldestStockAgeDays ?? 0;
+        const tone = days >= 60 ? "text-red-600" : days >= 30 ? "text-amber-600" : "text-slate-600";
+        return <span className={`font-medium ${tone}`}>{days}d</span>;
+      },
+    },
+    {
+      key: "aged30Count",
+      header: "30+",
+      render: (r: StockRow) => {
+        const count = r.aged30Count ?? 0;
+        return <span className={count > 0 ? "font-medium text-amber-600" : undefined}>{count}</span>;
+      },
+    },
+    {
+      key: "aged60Count",
+      header: "60+",
+      render: (r: StockRow) => {
+        const count = r.aged60Count ?? 0;
+        return <span className={count > 0 ? "font-medium text-red-600" : undefined}>{count}</span>;
+      },
+    },
   ];
 
   return (
@@ -233,6 +283,21 @@ export function StockReportContent({
               </select>
             </div>
           )}
+          {branches.length > 0 && (
+            <div>
+              <Label className="mb-1 block text-xs text-slate-500">Branch</Label>
+              <select
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                className="flex h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+              >
+                <option value="">All branches</option>
+                {branches.map((branch) => (
+                  <option key={branch._id} value={branch._id}>{branch.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Button onClick={loadReport} disabled={loading}>
             {loading && <Loader2 size={16} className="mr-2 animate-spin" />}
             {t("loadReport")}
@@ -241,10 +306,12 @@ export function StockReportContent({
 
         {data && (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <StatCard title={t("totalProducts")} value={String(data.summary.totalProducts)} />
               <StatCard title={t("totalUnits")} value={String(data.summary.totalQuantity)} />
               <StatCard title={t("stockValue")} value={formatCurrency(data.summary.totalValue)} />
+              <StatCard title="30+ day stock" value={String(data.summary.aged30Units)} />
+              <StatCard title="60+ day stock" value={String(data.summary.aged60Units)} />
             </div>
 
             <div className="flex justify-end">

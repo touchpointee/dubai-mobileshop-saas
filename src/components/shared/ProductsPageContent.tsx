@@ -36,6 +36,8 @@ type Product = {
   imeiCount?: number;
   trackByBatch?: boolean;
   barcode?: string;
+  condition?: "NEW" | "USED";
+  isMarginScheme?: boolean;
 };
 
 type ProductCategory = { _id: string; name: string; nameAr?: string; sortOrder: number; parentId?: string | null; parentName?: string | null };
@@ -56,6 +58,8 @@ const emptyForm = {
   barcode: "",
   startingStock: "",
   stockQty: "",
+  condition: "NEW",
+  isMarginScheme: false,
 };
 
 function QtyBadge({ qty }: { qty: number }) {
@@ -168,6 +172,8 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
       barcode: p.barcode ?? "",
       startingStock: "",
       stockQty: String(p.quantity ?? 0),
+      condition: p.condition ?? "NEW",
+      isMarginScheme: Boolean(p.isMarginScheme),
     });
     setModalOpen(true);
   }
@@ -213,6 +219,8 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
         ...(editing && !form.requiresImei && form.stockQty !== ""
           ? { quantity: Math.max(0, Math.floor(Number(form.stockQty))) }
           : {}),
+        condition: form.condition,
+        isMarginScheme: Boolean(form.isMarginScheme),
       };
       const res = await fetch(url, {
         method,
@@ -743,6 +751,32 @@ export function ProductsPageContent({ channel }: { channel: Channel }) {
                 className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
               />
               <Label htmlFor="pr-requiresImei" className="font-normal">{t("requireImei")}</Label>
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="pr-condition">Condition:</Label>
+                <select
+                  id="pr-condition"
+                  value={form.condition}
+                  onChange={(e) => setForm((f) => ({ ...f, condition: e.target.value as "NEW" | "USED" }))}
+                  className="rounded-md border border-slate-300 text-sm p-1"
+                >
+                  <option value="NEW">New</option>
+                  <option value="USED">Used / Second-hand</option>
+                </select>
+              </div>
+              {form.condition === "USED" && (
+                <div className="flex items-center gap-2 ml-4">
+                  <input
+                    type="checkbox"
+                    id="pr-isMarginScheme"
+                    checked={form.isMarginScheme}
+                    onChange={(e) => setForm((f) => ({ ...f, isMarginScheme: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <Label htmlFor="pr-isMarginScheme" className="font-normal text-amber-700">Apply Profit Margin Scheme (VAT)</Label>
+                </div>
+              )}
             </div>
             {form.requiresImei ? (
               <div className="sm:col-span-2 text-sm text-slate-500">

@@ -17,6 +17,7 @@ const returnItemSubSchema = new Schema(
 const returnSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     channel: { type: String, enum: CHANNELS, required: true },
     saleId: { type: Schema.Types.ObjectId, ref: "Sale", required: true },
     returnNumber: { type: String, required: true },

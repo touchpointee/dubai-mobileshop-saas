@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Sale } from "@/models/Sale";
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
   await connectDB();
+  const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
 
   const dateMatch: Record<string, unknown> = {};
   if (from) dateMatch.$gte = new Date(from);
@@ -19,12 +21,12 @@ export async function GET(request: NextRequest) {
     dateMatch.$lte = toDate;
   }
 
-  const saleMatch: Record<string, unknown> = { shopId, status: "COMPLETED" };
+  const saleMatch: Record<string, unknown> = { shopId: shopObjectId, status: "COMPLETED" };
   if (Object.keys(dateMatch).length) saleMatch.saleDate = dateMatch;
-  const expenseMatch: Record<string, unknown> = { shopId };
+  const expenseMatch: Record<string, unknown> = { shopId: shopObjectId };
   if (Object.keys(dateMatch).length) expenseMatch.date = dateMatch;
 
-  const [salesAgg, expenseAgg] = await Promise.all([
+  const [salesAgg, cogsAgg, expenseAgg] = await Promise.all([
     Sale.aggregate([
       { $match: saleMatch },
       {
@@ -36,6 +38,23 @@ export async function GET(request: NextRequest) {
         },
       },
     ]),
+    Sale.aggregate([
+      { $match: saleMatch },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: null,
+          cogs: {
+            $sum: {
+              $ifNull: [
+                "$items.costAmount",
+                { $ifNull: ["$items.marginCost", 0] },
+              ],
+            },
+          },
+        },
+      },
+    ]),
     Expense.aggregate([
       { $match: expenseMatch },
       { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -43,14 +62,17 @@ export async function GET(request: NextRequest) {
   ]);
 
   const revenue = salesAgg[0]?.revenue ?? 0;
+  const cogs = cogsAgg[0]?.cogs ?? 0;
   const expenses = expenseAgg[0]?.total ?? 0;
   const vatCollected = salesAgg[0]?.vatCollected ?? 0;
 
   return Response.json({
     revenue,
     vatCollected,
+    cogs,
     expenses,
-    grossProfit: revenue - expenses,
-    note: "Revenue includes all sales. Cost of goods is not deducted here; use inventory reports for COGS.",
+    grossProfit: revenue - cogs,
+    netProfit: revenue - cogs - expenses,
+    note: "Gross profit uses sale-line cost snapshots for new sales. Older sales without cost snapshots may understate COGS.",
   });
 }

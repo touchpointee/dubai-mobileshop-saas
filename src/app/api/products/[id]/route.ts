@@ -32,7 +32,7 @@ export async function PUT(
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   const body = await request.json();
-  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive, barcode, quantity } = body;
+  const { name, nameAr, brand, model, category, categoryId, dealerId, costPrice, sellPrice, minSellPrice, requiresImei, trackByBatch, isActive, barcode, quantity, condition, isMarginScheme } = body;
   await connectDB();
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
@@ -40,6 +40,8 @@ export async function PUT(
   if (nameAr !== undefined) product.nameAr = nameAr ? String(nameAr).trim() : undefined;
   if (brand !== undefined) product.brand = brand ? String(brand).trim() : undefined;
   if (model !== undefined) product.model = model ? String(model).trim() : undefined;
+  if (condition !== undefined) product.condition = String(condition);
+  if (isMarginScheme !== undefined) product.isMarginScheme = Boolean(isMarginScheme);
   if (categoryId !== undefined) {
     product.categoryId = categoryId && mongoose.Types.ObjectId.isValid(categoryId) ? categoryId : undefined;
     if (product.categoryId) {

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Staff } from "@/models/Staff";
@@ -7,6 +8,7 @@ import { StaffSalaryPayment } from "@/models/StaffSalaryPayment";
 export async function GET(request: NextRequest) {
   const { shopId, error } = await requireShopSession();
   if (error) return error;
+  const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
   const activeOnly = request.nextUrl.searchParams.get("activeOnly");
   await connectDB();
   const match: Record<string, unknown> = { shopId };
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
   const listTyped = list as unknown as StaffLean[];
   const staffIds = listTyped.map((s) => s._id);
   const totals = await StaffSalaryPayment.aggregate([
-    { $match: { shopId, staffId: { $in: staffIds } } },
+    { $match: { shopId: shopObjectId, staffId: { $in: staffIds } } },
     { $group: { _id: "$staffId", total: { $sum: "$amount" } } },
   ]);
   const totalByStaff: Record<string, number> = {};

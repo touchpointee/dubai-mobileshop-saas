@@ -185,6 +185,8 @@ type A4InvoiceDocProps = {
   changeAmount: number;
   payments: { methodName: string; amount: number }[];
   channel: "VAT" | "NON_VAT";
+  hasMarginSchemeItems?: boolean;
+  paperSize?: "A4" | "A5";
   language?: A4InvoiceLanguage;
 };
 
@@ -207,6 +209,8 @@ function A4InvoiceDocument({
   changeAmount,
   payments,
   channel,
+  hasMarginSchemeItems,
+  paperSize = "A4",
   language = "en",
 }: A4InvoiceDocProps) {
   const L = A4_INVOICE_LABELS[language];
@@ -216,13 +220,20 @@ function A4InvoiceDocument({
 
   return (
     <Document>
-      <Page size="A4" style={pageStyle}>
+      <Page size={paperSize} style={pageStyle}>
         <View style={styles.header}>
           <Text style={styles.shopName}>{shopName}</Text>
           {shopAddress && <Text style={styles.row}>{shopAddress}</Text>}
           {shopPhone && <Text style={styles.row}>{shopPhone}</Text>}
           {channel === "VAT" && trnNumber && (
             <Text style={styles.row}>{L.trn}: {trnNumber}</Text>
+          )}
+          {channel === "VAT" && hasMarginSchemeItems && (
+            <View style={{ marginTop: 4, padding: 4, borderWidth: 1, borderColor: "#000" }}>
+              <Text style={{ fontSize: 8, fontWeight: "bold", textAlign: "center" }}>
+                VAT ACCOUNTED FOR UNDER THE PROFIT MARGIN SCHEME
+              </Text>
+            </View>
           )}
         </View>
 
@@ -278,7 +289,7 @@ function A4InvoiceDocument({
               <Text>-{discountAmount.toFixed(2)}</Text>
             </View>
           )}
-          {channel === "VAT" && vatAmount > 0 && (
+          {channel === "VAT" && vatAmount > 0 && !hasMarginSchemeItems && (
             <View style={styles.totalRow}>
               <Text>{L.inclVat} ({vatRate}%)</Text>
               <Text>{vatAmount.toFixed(2)}</Text>
@@ -345,6 +356,8 @@ function normalizeA4Props(props: A4InvoiceDocProps, options?: A4InvoiceOptions):
       amount: Number(p?.amount) || 0,
     })),
     channel: props.channel === "NON_VAT" ? "NON_VAT" : "VAT",
+    hasMarginSchemeItems: Boolean(props.hasMarginSchemeItems),
+    paperSize: props.paperSize === "A5" ? "A5" : "A4",
     language,
   };
 }

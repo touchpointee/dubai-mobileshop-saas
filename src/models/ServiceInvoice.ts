@@ -15,6 +15,7 @@ const serviceInvoiceItemSchema = new Schema(
 const serviceInvoiceSchema = new Schema(
   {
     shopId: { type: Schema.Types.ObjectId, ref: "Shop", required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: "Branch", index: true },
     serviceJobId: { type: Schema.Types.ObjectId, ref: "ServiceJob", required: true, index: true },
     invoiceNumber: { type: String, required: true },
     labourAmount: { type: Number, default: 0 },

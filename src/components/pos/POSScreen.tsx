@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { Channel } from "@/lib/constants";
 import { ThermalReceipt } from "@/components/receipts/ThermalReceipt";
 import { printA4InvoicePdf } from "@/components/receipts/A4Invoice";
+import type { ThermalPrintSettings } from "@/components/receipts/ThermalReceipt";
 import { Search, ShoppingCart, User, Percent, Package, Check, Minus, Plus } from "lucide-react";
 
 type Product = { _id: string; name: string; sellPrice: number; quantity: number; brand?: string; requiresImei?: boolean; imeiCount?: number; minSellPrice?: number };
@@ -20,7 +21,8 @@ function getAvailableQty(p: Product): number {
 }
 type ProductImei = { _id: string; imei: string; status: string };
 type Customer = { _id: string; name: string; phone?: string };
-type PaymentMethod = { _id: string; name: string };
+type PaymentMethod = { _id: string; name: string; type?: string; provider?: string; requiresReference?: boolean };
+type Branch = { _id: string; name: string; code?: string; isDefault?: boolean; isActive?: boolean };
 
 type LastSale = {
   invoiceNumber: string;
@@ -36,8 +38,9 @@ type LastSale = {
   grandTotal: number;
   paidAmount: number;
   changeAmount: number;
+  hasMarginSchemeItems?: boolean;
   channel: "VAT" | "NON_VAT";
-  shop?: { name?: string; address?: string; phone?: string; trnNumber?: string };
+  shop?: { name?: string; address?: string; phone?: string; trnNumber?: string; printSettings?: ThermalPrintSettings };
 };
 
 export function POSScreen({
@@ -56,6 +59,8 @@ export function POSScreen({
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [search, setSearch] = useState("");
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [customerModal, setCustomerModal] = useState(false);
@@ -81,20 +86,32 @@ export function POSScreen({
   const totals = getGrandTotal(channel === "VAT" ? vatRate : 0);
 
   const fetchProducts = useCallback(() => {
-    fetch(`/api/products?channel=${channel}`).then((r) => { if (r.ok) return r.json().then(setProducts); });
-  }, [channel]);
+    const params = new URLSearchParams({ channel });
+    if (branchId) params.set("branchId", branchId);
+    fetch(`/api/products?${params}`).then((r) => { if (r.ok) return r.json().then(setProducts); });
+  }, [channel, branchId]);
   const fetchCustomers = useCallback(() => {
     fetch("/api/customers").then((r) => { if (r.ok) return r.json().then(setCustomers); });
   }, []);
   const fetchPaymentMethods = useCallback(() => {
     fetch("/api/payment-methods").then((r) => { if (r.ok) return r.json().then(setPaymentMethods); });
   }, []);
+  const fetchBranches = useCallback(() => {
+    fetch("/api/branches").then((r) => {
+      if (r.ok) return r.json().then((data: Branch[]) => {
+        const active = data.filter((b) => b.isActive !== false);
+        setBranches(active);
+        setBranchId((current) => current || active.find((b) => b.isDefault)?._id || active[0]?._id || "");
+      });
+    });
+  }, []);
 
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
     fetchPaymentMethods();
-  }, [fetchProducts, fetchCustomers, fetchPaymentMethods]);
+    fetchBranches();
+  }, [fetchProducts, fetchCustomers, fetchPaymentMethods, fetchBranches]);
 
   useEffect(() => {
     if (!search.trim()) { setFilteredProducts(products.filter((p) => getAvailableQty(p) > 0).slice(0, 30)); return; }
@@ -108,7 +125,7 @@ export function POSScreen({
     // Add to cart immediately (frontend state) so UI feels instant
     addItem({ productId: p._id, productName: p.name, quantity: 1, unitPrice: p.sellPrice, discount: 0, totalPrice: p.sellPrice });
     // Then check IMEI: if product requires IMEI selection, undo add and open modal
-    fetch(`/api/products/${p._id}/imeis`)
+    fetch(`/api/products/${p._id}/imeis${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ""}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((imeis: ProductImei[]) => {
         if (imeis.length > 0) {
@@ -138,7 +155,9 @@ export function POSScreen({
 
   async function handleBarcodeScan(code: string) {
     if (code.length < 3) return;
-    const res = await fetch(`/api/products/lookup?code=${encodeURIComponent(code)}&channel=${channel}`);
+    const lookupParams = new URLSearchParams({ code, channel });
+    if (branchId) lookupParams.set("branchId", branchId);
+    const res = await fetch(`/api/products/lookup?${lookupParams}`);
     setBarcodeInput("");
     barcodeInputRef.current?.focus();
     if (!res.ok) {
@@ -172,7 +191,7 @@ export function POSScreen({
       if (getAvailableQty(product) <= 0) return;
       addItem({ productId, productName: product.name, quantity: 1, unitPrice: product.sellPrice, discount: 0, totalPrice: product.sellPrice });
       if (product.requiresImei) {
-        fetch(`/api/products/${productId}/imeis`)
+        fetch(`/api/products/${productId}/imeis${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ""}`)
           .then((r) => (r.ok ? r.json() : []))
           .then((imeis: ProductImei[]) => {
             if (imeis.length > 0) {
@@ -203,6 +222,7 @@ export function POSScreen({
       discountType: state.discountType,
       discountValue: state.discountValue,
       payments: paymentRows,
+      branchId,
     };
     if (includeChannelInSale) body.channel = channel;
     const res = await fetch("/api/sales", {
@@ -265,6 +285,17 @@ export function POSScreen({
               className="ps-10 h-12 text-base"
             />
           </div>
+          {branches.length > 0 && (
+            <select
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+              className="h-12 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-teal-500"
+            >
+              {branches.map((branch) => (
+                <option key={branch._id} value={branch._id}>{branch.name}</option>
+              ))}
+            </select>
+          )}
           <span className="text-sm font-medium text-slate-400">VAT {t("channel")}</span>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
@@ -533,8 +564,8 @@ export function POSScreen({
       {/* Sale success toast */}
       {lastSale && (() => {
         const s = lastSale;
-        const shop = s.shop ?? { name: "Shop", address: "", phone: "", trnNumber: "" };
-        const a4Props = { shopName: shop.name ?? "Shop", shopAddress: shop.address, shopPhone: shop.phone, trnNumber: shop.trnNumber, invoiceNumber: s.invoiceNumber, saleDate: s.saleDate, customerName: s.customerName, customerPhone: s.customerPhone, items: s.items, subtotal: s.subtotal, discountAmount: s.discountAmount, vatRate: s.vatRate, vatAmount: s.vatAmount, grandTotal: s.grandTotal, paidAmount: s.paidAmount, changeAmount: s.changeAmount, payments: s.payments, channel: s.channel };
+        const shop = s.shop ?? { name: "Shop", address: "", phone: "", trnNumber: "", printSettings: undefined };
+        const a4Props = { shopName: shop.name ?? "Shop", shopAddress: shop.address, shopPhone: shop.phone, trnNumber: shop.trnNumber, invoiceNumber: s.invoiceNumber, saleDate: s.saleDate, customerName: s.customerName, customerPhone: s.customerPhone, items: s.items, subtotal: s.subtotal, discountAmount: s.discountAmount, vatRate: s.vatRate, vatAmount: s.vatAmount, grandTotal: s.grandTotal, paidAmount: s.paidAmount, changeAmount: s.changeAmount, payments: s.payments, channel: s.channel, hasMarginSchemeItems: s.hasMarginSchemeItems, paperSize: shop.printSettings?.a4PaperSize };
         return (
           <>
             <div className="fixed bottom-4 end-4 z-40 animate-fade-in rounded-xl border border-teal-200 bg-white p-4 shadow-lg">
@@ -543,7 +574,7 @@ export function POSScreen({
                 <p className="font-semibold text-slate-900">{t("saleCompleted", { invoiceNumber: s.invoiceNumber })}</p>
               </div>
               <div className="flex gap-2">
-                <ThermalReceipt shopName={shop.name ?? "Shop"} shopAddress={shop.address} shopPhone={shop.phone} trnNumber={shop.trnNumber} invoiceNumber={s.invoiceNumber} saleDate={s.saleDate} customerName={s.customerName} customerPhone={s.customerPhone} items={s.items} subtotal={s.subtotal} discountAmount={s.discountAmount} vatRate={s.vatRate} vatAmount={s.vatAmount} grandTotal={s.grandTotal} paidAmount={s.paidAmount} changeAmount={s.changeAmount} payments={s.payments} channel={s.channel} onPrintComplete={() => {}} trigger={(onClick) => (<Button size="sm" variant="outline" onClick={onClick}>{t("receipt")}</Button>)} />
+                <ThermalReceipt shopName={shop.name ?? "Shop"} shopAddress={shop.address} shopPhone={shop.phone} trnNumber={shop.trnNumber} invoiceNumber={s.invoiceNumber} saleDate={s.saleDate} customerName={s.customerName} customerPhone={s.customerPhone} items={s.items} subtotal={s.subtotal} discountAmount={s.discountAmount} vatRate={s.vatRate} vatAmount={s.vatAmount} grandTotal={s.grandTotal} paidAmount={s.paidAmount} changeAmount={s.changeAmount} payments={s.payments} channel={s.channel} hasMarginSchemeItems={s.hasMarginSchemeItems} printSettings={shop.printSettings} onPrintComplete={() => {}} trigger={(onClick) => (<Button size="sm" variant="outline" onClick={onClick}>{t("receipt")}</Button>)} />
                 <Button size="sm" variant="outline" onClick={() => setA4LanguageModalOpen(true)}>{t("a4Invoice")}</Button>
                 <Button size="sm" variant="ghost" onClick={() => { setLastSale(null); setA4LanguageModalOpen(false); }}>{tCommon("close")}</Button>
               </div>
@@ -581,6 +612,13 @@ function PaymentModal({ grandTotal, paymentMethods, initialPaymentMethodId, onCl
     e.preventDefault();
     const valid = rows.filter((r) => r.paymentMethodId && Number(r.amount) > 0);
     if (valid.length === 0) { alert(tErrors("selectPaymentAndAmount")); return; }
+    for (const row of valid) {
+      const method = paymentMethods.find((pm) => pm._id === row.paymentMethodId);
+      if (method?.requiresReference && !row.reference.trim()) {
+        alert(`Reference is required for ${method.name}`);
+        return;
+      }
+    }
     onSubmit(valid.map((r) => ({ paymentMethodId: r.paymentMethodId, amount: Number(r.amount), reference: r.reference || undefined })));
   }
 
@@ -589,17 +627,29 @@ function PaymentModal({ grandTotal, paymentMethods, initialPaymentMethodId, onCl
       <p className="mb-5 text-xl font-bold text-slate-900">{tModals("total")}: {formatCurrency(grandTotal)}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {rows.map((row, i) => (
-          <div key={i} className="flex gap-3 items-end">
+          <div key={i} className="grid gap-3 md:grid-cols-[1fr_140px_1fr] md:items-end">
             <div className="flex-1">
               <Label className="text-sm">{tForms("method")}</Label>
               <select value={row.paymentMethodId} onChange={(e) => updateRow(i, "paymentMethodId", e.target.value)} className="mt-1.5 w-full h-12 rounded-xl border border-slate-200 bg-white px-4 py-2 text-base outline-none focus:border-teal-500">
                 <option value="">{tCommon("select")}</option>
-                {paymentMethods.map((pm) => (<option key={pm._id} value={pm._id}>{pm.name}</option>))}
+                {paymentMethods.map((pm) => (<option key={pm._id} value={pm._id}>{pm.name}{pm.type ? ` (${pm.type.replace(/_/g, " ")})` : ""}</option>))}
               </select>
             </div>
-            <div className="w-32">
+            <div>
               <Label className="text-sm">{tForms("amount")}</Label>
               <Input className="mt-1.5 h-12 text-base" type="number" step="0.01" min="0" value={row.amount} onChange={(e) => updateRow(i, "amount", e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-sm">
+                {tForms("reference")}
+                {paymentMethods.find((pm) => pm._id === row.paymentMethodId)?.requiresReference ? " *" : ""}
+              </Label>
+              <Input
+                className="mt-1.5 h-12 text-base"
+                value={row.reference}
+                onChange={(e) => updateRow(i, "reference", e.target.value)}
+                placeholder={paymentMethods.find((pm) => pm._id === row.paymentMethodId)?.provider || tForms("reference")}
+              />
             </div>
           </div>
         ))}
