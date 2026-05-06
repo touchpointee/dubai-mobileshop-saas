@@ -4,13 +4,13 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter, resolveAccessibleBranchId } from "@/lib/branches";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -18,7 +18,7 @@ export async function GET(
   }
   await connectDB();
   const branchParam = request.nextUrl.searchParams.get("branchId");
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
   const imeis = await ProductImei.find({ productId: id, shopId, status: "IN_STOCK", ...(branchId ? { branchId } : {}) })
@@ -31,7 +31,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -43,7 +43,7 @@ export async function POST(
     return Response.json({ error: "IMEI is required" }, { status: 400 });
   }
   await connectDB();
-  const branchId = await resolveBranchId(shopId!, bodyBranchId);
+  const branchId = await resolveAccessibleBranchId(shopId!, bodyBranchId, session!.user.branchId);
   const product = await Product.findOne({ _id: id, shopId });
   if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
   const existing = await ProductImei.findOne({ imei: imei.trim() });

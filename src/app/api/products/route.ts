@@ -8,7 +8,7 @@ import { getCategoryPathDisplayString } from "@/lib/category-path";
 import { generateUniqueBarcodeForShop } from "@/lib/barcode";
 import { ProductImei } from "@/models/ProductImei";
 import "@/models/Dealer";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter, resolveAccessibleBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const branchParam = request.nextUrl.searchParams.get("branchId");
 
   await connectDB();
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
   // Shared product list - VAT and Non-VAT see same catalog
   const list = await Product.find({ shopId, isActive: true })
     .populate("dealerId", "name phone")
@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
     .lean();
   const listWithImei = list as Array<{ requiresImei?: boolean; _id: { toString(): string } }>;
   const requireImeiIds = listWithImei.filter((p) => p.requiresImei).map((p) => p._id);
+  const batchTrackedIds = (list as Array<{ trackByBatch?: boolean; requiresImei?: boolean; _id: { toString(): string } }>)
+    .filter((p) => p.trackByBatch && !p.requiresImei)
+    .map((p) => p._id);
   if (requireImeiIds.length > 0) {
     const counts = await ProductImei.aggregate([
       { $match: { shopId: new mongoose.Types.ObjectId(String(shopId)), productId: { $in: requireImeiIds }, status: "IN_STOCK", ...(branchId ? { branchId } : {}) } },
@@ -39,6 +42,17 @@ export async function GET(request: NextRequest) {
     for (const c of counts) countMap[c._id.toString()] = c.count;
     for (const p of listWithImei) {
       if (p.requiresImei) (p as Record<string, unknown>).imeiCount = countMap[p._id.toString()] ?? 0;
+    }
+  }
+  if (branchId && batchTrackedIds.length > 0) {
+    const batchCounts = await ProductBatch.aggregate([
+      { $match: { shopId: new mongoose.Types.ObjectId(String(shopId)), productId: { $in: batchTrackedIds }, branchId, quantity: { $gt: 0 } } },
+      { $group: { _id: "$productId", quantity: { $sum: "$quantity" } } },
+    ]);
+    const batchMap: Record<string, number> = {};
+    for (const c of batchCounts) batchMap[c._id.toString()] = c.quantity;
+    for (const p of list as Array<{ trackByBatch?: boolean; requiresImei?: boolean; _id: { toString(): string }; quantity?: number }>) {
+      if (p.trackByBatch && !p.requiresImei) p.quantity = batchMap[p._id.toString()] ?? 0;
     }
   }
   if (role === "STAFF") {
@@ -75,7 +89,7 @@ export async function POST(request: NextRequest) {
       ? Math.floor(Number(startingStock))
       : 0;
   await connectDB();
-  const branchId = await resolveBranchId(shopId!, bodyBranchId);
+  const branchId = await resolveAccessibleBranchId(shopId!, bodyBranchId, session!.user.branchId);
   const productId = new mongoose.Types.ObjectId().toString();
   const productData: Record<string, unknown> = {
     id: productId,

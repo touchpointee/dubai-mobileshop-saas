@@ -10,10 +10,14 @@ import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
 
 export async function GET() {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   await connectDB();
-  const list = await StockTransfer.find({ shopId })
+  const branchId = session!.user.branchId;
+  const match = branchId
+    ? { shopId, $or: [{ fromBranchId: branchId }, { toBranchId: branchId }] }
+    : { shopId };
+  const list = await StockTransfer.find(match)
     .populate("fromBranchId", "name code")
     .populate("toBranchId", "name code")
     .sort({ transferDate: -1 })
@@ -27,6 +31,9 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   const body = await request.json();
   const { fromBranchId, toBranchId, imeiIds, notes } = body;
+  if (session!.user.branchId && String(session!.user.branchId) !== String(fromBranchId)) {
+    return Response.json({ error: "Branch users can transfer stock only from their assigned branch" }, { status: 403 });
+  }
   if (!mongoose.Types.ObjectId.isValid(fromBranchId) || !mongoose.Types.ObjectId.isValid(toBranchId) || String(fromBranchId) === String(toBranchId)) {
     return Response.json({ error: "Valid source and destination branches are required" }, { status: 400 });
   }

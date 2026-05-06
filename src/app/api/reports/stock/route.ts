@@ -4,7 +4,8 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
-import { resolveBranchId } from "@/lib/branches";
+import { ProductBatch } from "@/models/ProductBatch";
+import { getAccessibleBranchFilter } from "@/lib/branches";
 
 type StockRow = {
   _id: unknown;
@@ -21,6 +22,7 @@ type StockRow = {
   costPrice: number;
   sellPrice: number;
   createdAt?: Date;
+  trackByBatch?: boolean;
 };
 
 function getStockQty(p: StockRow): number {
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
   await connectDB();
   const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
   const branchParam = request.nextUrl.searchParams.get("branchId");
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
 
   // VAT-only: stock report shows only VAT channel products
   const list = await Product.find({ shopId, isActive: true, channel: "VAT" })
@@ -82,6 +84,30 @@ export async function GET(request: NextRequest) {
       p.oldestStockAgeDays = aging?.oldestCreatedAt
         ? Math.max(0, Math.floor((now - new Date(aging.oldestCreatedAt).getTime()) / oneDayMs))
         : 0;
+    }
+  }
+
+  const batchTrackedIds = products.filter((p) => p.trackByBatch && !p.requiresImei).map((p) => p._id);
+  if (branchId && batchTrackedIds.length > 0) {
+    const batchCounts = await ProductBatch.aggregate([
+      { $match: { shopId: shopObjectId, productId: { $in: batchTrackedIds }, branchId, quantity: { $gt: 0 } } },
+      {
+        $group: {
+          _id: "$productId",
+          quantity: { $sum: "$quantity" },
+          oldestCreatedAt: { $min: "$createdAt" },
+        },
+      },
+    ]);
+    const batchMap: Record<string, { quantity: number; oldestCreatedAt?: Date }> = {};
+    for (const c of batchCounts) {
+      batchMap[c._id.toString()] = { quantity: c.quantity ?? 0, oldestCreatedAt: c.oldestCreatedAt };
+    }
+    for (const p of products) {
+      if (!p.trackByBatch || p.requiresImei) continue;
+      const batchStock = batchMap[p._id.toString()];
+      p.quantity = batchStock?.quantity ?? 0;
+      if (batchStock?.oldestCreatedAt) p.createdAt = batchStock.oldestCreatedAt;
     }
   }
 

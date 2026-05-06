@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
   if (error) return error;
   const channel: "VAT" = "VAT";
   await connectDB();
-  const list = await ReturnModel.find({ shopId, channel })
+  const match: Record<string, unknown> = { shopId, channel };
+  if (session!.user.branchId) match.branchId = session!.user.branchId;
+  const list = await ReturnModel.find(match)
     .populate("saleId", "invoiceNumber")
     .sort({ returnDate: -1 })
     .limit(200)
@@ -47,7 +49,9 @@ export async function POST(request: NextRequest) {
   }
 
   await connectDB();
-  const sale = await Sale.findOne({ _id: saleId, shopId, channel: "VAT" });
+  const saleMatch: Record<string, unknown> = { _id: saleId, shopId, channel: "VAT" };
+  if (session!.user.branchId) saleMatch.branchId = session!.user.branchId;
+  const sale = await Sale.findOne(saleMatch);
   if (!sale) return Response.json({ error: "Sale not found" }, { status: 404 });
 
   let totalAmount = 0;
@@ -86,6 +90,7 @@ export async function POST(request: NextRequest) {
 
   const returnDoc = await ReturnModel.create({
     shopId,
+    branchId: sale.branchId,
     channel: "VAT",
     saleId,
     returnNumber,
@@ -105,7 +110,7 @@ export async function POST(request: NextRequest) {
     if (item.imeiId) {
       await ProductImei.updateOne(
         { _id: item.imeiId, shopId },
-        { $set: { status: "IN_STOCK", saleId: null } }
+        { $set: { status: "IN_STOCK", saleId: null, branchId: sale.branchId } }
       );
     }
   }

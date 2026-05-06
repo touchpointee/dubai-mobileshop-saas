@@ -10,14 +10,16 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return Response.json({ error: "Invalid ID" }, { status: 400 });
   }
   await connectDB();
-  const job = await ServiceJob.findOne({ _id: id, shopId }).lean();
+  const match: Record<string, unknown> = { _id: id, shopId };
+  if (session!.user.branchId) match.branchId = session!.user.branchId;
+  const job = await ServiceJob.findOne(match).populate("branchId", "name code").lean();
   if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
   return Response.json(job);
 }
@@ -34,7 +36,9 @@ export async function PUT(
   }
   const body = await request.json();
   await connectDB();
-  const job = await ServiceJob.findOne({ _id: id, shopId });
+  const match: Record<string, unknown> = { _id: id, shopId };
+  if (session!.user.branchId) match.branchId = session!.user.branchId;
+  const job = await ServiceJob.findOne(match);
   if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
 
   const prevStatus = job.status;

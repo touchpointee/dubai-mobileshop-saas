@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { ROLES } from "@/lib/constants";
 
-type ShopRef = { _id: string; name: string; slug: string };
+type ShopRef = { _id: string; name: string; slug?: string };
+type BranchRef = { _id: string; name: string; code: string };
 
 type User = {
   _id: string;
@@ -21,10 +22,12 @@ type User = {
   email: string;
   role: string;
   shopId?: ShopRef | string | null;
+  branchId?: BranchRef | string | null;
   isActive: boolean;
 };
 
 type Shop = { _id: string; name: string; slug: string };
+type Branch = { _id: string; name: string; code: string; shopId?: ShopRef | string; isActive?: boolean };
 
 type UserForm = {
   name: string;
@@ -32,12 +35,14 @@ type UserForm = {
   password: string;
   role: string;
   shopId: string;
+  branchId: string;
 };
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const API_USERS = "/api/super-admin/users";
 const API_SHOPS = "/api/super-admin/shops";
+const API_BRANCHES = "/api/super-admin/branches";
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: "bg-slate-100 text-slate-700",
@@ -54,12 +59,24 @@ const emptyForm: UserForm = {
   password: "",
   role: "VAT_STAFF",
   shopId: "",
+  branchId: "",
 };
 
 function getShopName(user: User): string {
   if (!user.shopId) return "—";
   if (typeof user.shopId === "string") return user.shopId;
   return user.shopId.name;
+}
+
+function getBranchName(user: User): string {
+  if (!user.branchId) return "All branches";
+  if (typeof user.branchId === "string") return user.branchId;
+  return `${user.branchId.name} (${user.branchId.code})`;
+}
+
+function getBranchShopId(branch: Branch): string {
+  if (!branch.shopId) return "";
+  return typeof branch.shopId === "string" ? branch.shopId : branch.shopId._id;
 }
 
 export default function UsersPage() {
@@ -70,6 +87,7 @@ export default function UsersPage() {
   const tRoleLabels = useTranslations("roleLabels");
   const { data: users, isLoading: loadingUsers } = useSWR<User[]>(API_USERS, fetcher);
   const { data: shops, isLoading: loadingShops } = useSWR<Shop[]>(API_SHOPS, fetcher);
+  const { data: branches, isLoading: loadingBranches } = useSWR<Branch[]>(API_BRANCHES, fetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
@@ -94,6 +112,10 @@ export default function UsersPage() {
         user.shopId && typeof user.shopId === "object"
           ? user.shopId._id
           : (user.shopId as string) || "",
+      branchId:
+        user.branchId && typeof user.branchId === "object"
+          ? user.branchId._id
+          : (user.branchId as string) || "",
     });
     setError("");
     setModalOpen(true);
@@ -109,6 +131,7 @@ export default function UsersPage() {
         email: form.email,
         role: form.role,
         shopId: form.role === "SUPER_ADMIN" ? undefined : form.shopId || undefined,
+        branchId: form.role === "SUPER_ADMIN" ? undefined : form.branchId || "",
       };
       if (form.password) payload.password = form.password;
       const res = await fetch(url, {
@@ -136,7 +159,9 @@ export default function UsersPage() {
     await mutate(API_USERS);
   };
 
-  if (loadingUsers || loadingShops) return <PageSkeleton />;
+  if (loadingUsers || loadingShops || loadingBranches) return <PageSkeleton />;
+
+  const filteredBranches = (branches ?? []).filter((branch) => getBranchShopId(branch) === form.shopId && branch.isActive !== false);
 
   const columns = [
     { key: "name", header: tForms("name") },
@@ -159,6 +184,13 @@ export default function UsersPage() {
       header: t("shop"),
       render: (user: User) => (
         <span className="text-slate-600">{getShopName(user)}</span>
+      ),
+    },
+    {
+      key: "branchId",
+      header: "Branch",
+      render: (user: User) => (
+        <span className="text-slate-600">{user.role === "SUPER_ADMIN" ? "-" : getBranchName(user)}</span>
       ),
     },
     {
@@ -274,7 +306,7 @@ export default function UsersPage() {
               <select
                 id="role"
                 value={form.role}
-                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value, branchId: e.target.value === "SUPER_ADMIN" ? "" : p.branchId }))}
                 className="flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
               >
                 {ROLES.map((role) => (
@@ -290,7 +322,7 @@ export default function UsersPage() {
                 <select
                   id="shopId"
                   value={form.shopId}
-                  onChange={(e) => setForm((p) => ({ ...p, shopId: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, shopId: e.target.value, branchId: "" }))}
                   className="flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                   required
                 >
@@ -304,6 +336,32 @@ export default function UsersPage() {
               </div>
             )}
           </div>
+
+          {form.role !== "SUPER_ADMIN" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="branchId">Branch assignment</Label>
+              <select
+                id="branchId"
+                value={form.branchId}
+                onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}
+                className="flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                required={form.role === "STAFF" || form.role === "VAT_SHOP_STAFF"}
+                disabled={!form.shopId}
+              >
+                <option value="">
+                  {form.role === "VAT_STAFF" ? "All branches / main shop admin" : "Select branch"}
+                </option>
+                {filteredBranches.map((branch) => (
+                  <option key={branch._id} value={branch._id}>
+                    {branch.name} ({branch.code})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                Leave empty only for the main shop admin. Staff logins must be assigned to a branch.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>

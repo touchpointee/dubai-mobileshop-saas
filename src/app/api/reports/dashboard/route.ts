@@ -6,10 +6,13 @@ import { Dealer } from "@/models/Dealer";
 import { Product } from "@/models/Product";
 
 export async function GET() {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   await connectDB();
   const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
+  const branchMatch = session!.user.branchId
+    ? { branchId: new mongoose.Types.ObjectId(String(session!.user.branchId)) }
+    : {};
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -17,11 +20,11 @@ export async function GET() {
 
   const [todayVat, monthVat, dealerBalances, lowStock] = await Promise.all([
     Sale.aggregate([
-      { $match: { shopId: shopObjectId, channel: "VAT", saleDate: { $gte: startOfToday }, status: "COMPLETED" } },
+      { $match: { shopId: shopObjectId, channel: "VAT", saleDate: { $gte: startOfToday }, status: "COMPLETED", ...branchMatch } },
       { $group: { _id: null, total: { $sum: "$grandTotal" }, vat: { $sum: "$vatAmount" } } },
     ]),
     Sale.aggregate([
-      { $match: { shopId: shopObjectId, channel: "VAT", saleDate: { $gte: startOfMonth }, status: "COMPLETED" } },
+      { $match: { shopId: shopObjectId, channel: "VAT", saleDate: { $gte: startOfMonth }, status: "COMPLETED", ...branchMatch } },
       { $group: { _id: null, total: { $sum: "$grandTotal" }, vat: { $sum: "$vatAmount" } } },
     ]),
     Dealer.aggregate([

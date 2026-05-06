@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
-import { Plus, Repeat, Save } from "lucide-react";
+import { Repeat } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,42 +35,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export function BranchManagementSection() {
   const { data: branches } = useSWR<Branch[]>("/api/branches", fetcher);
   const { data: transfers } = useSWR<Transfer[]>("/api/stock-transfers", fetcher);
-  const [modalOpen, setModalOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", code: "", address: "", phone: "", managerName: "", isDefault: false });
   const [transferForm, setTransferForm] = useState({ fromBranchId: "", toBranchId: "", imeis: "", notes: "" });
   const [saving, setSaving] = useState(false);
-
-  async function saveBranch(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await fetch("/api/branches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (res.ok) {
-        setModalOpen(false);
-        setForm({ name: "", code: "", address: "", phone: "", managerName: "", isDefault: false });
-        mutate("/api/branches");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || "Failed to save branch");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function toggleBranch(branch: Branch, patch: Partial<Branch>) {
-    const res = await fetch(`/api/branches/${branch._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) mutate("/api/branches");
-  }
 
   async function submitTransfer(e: React.FormEvent) {
     e.preventDefault();
@@ -114,17 +81,11 @@ export function BranchManagementSection() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Branches" description="Manage shop branches and transfer IMEI stock between them.">
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setTransferOpen(true)}>
-            <Repeat size={16} className="mr-1.5" />
-            Transfer IMEI
-          </Button>
-          <Button onClick={() => setModalOpen(true)}>
-            <Plus size={16} className="mr-1.5" />
-            Add Branch
-          </Button>
-        </div>
+      <PageHeader title="Branches" description="Branches are created by super admin. Main shop admins can transfer stock between assigned branches.">
+        <Button variant="outline" onClick={() => setTransferOpen(true)} disabled={activeBranches.length < 2}>
+          <Repeat size={16} className="mr-1.5" />
+          Transfer IMEI
+        </Button>
       </PageHeader>
 
       <div className="px-6 pb-6 space-y-6">
@@ -134,15 +95,11 @@ export function BranchManagementSection() {
             { key: "code", header: "Code" },
             { key: "managerName", header: "Manager", render: (b: Branch) => b.managerName || "-" },
             { key: "phone", header: "Phone", render: (b: Branch) => b.phone || "-" },
-            { key: "isDefault", header: "Default", render: (b: Branch) => b.isDefault ? "Yes" : <Button size="sm" variant="ghost" onClick={() => toggleBranch(b, { isDefault: true })}>Set</Button> },
-            { key: "isActive", header: "Status", render: (b: Branch) => (
-              <Button size="sm" variant="ghost" onClick={() => toggleBranch(b, { isActive: b.isActive === false })}>
-                {b.isActive === false ? "Inactive" : "Active"}
-              </Button>
-            ) },
+            { key: "isDefault", header: "Default", render: (b: Branch) => b.isDefault ? "Yes" : "-" },
+            { key: "isActive", header: "Status", render: (b: Branch) => b.isActive === false ? "Inactive" : "Active" },
           ]}
           data={branches ?? []}
-          emptyMessage="No branches yet."
+          emptyMessage="No branches assigned yet."
         />
 
         <section>
@@ -160,23 +117,6 @@ export function BranchManagementSection() {
           />
         </section>
       </div>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Branch">
-        <form onSubmit={saveBranch} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
-            <div><Label>Code</Label><Input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="MAIN" /></div>
-            <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></div>
-            <div><Label>Manager</Label><Input value={form.managerName} onChange={(e) => setForm((f) => ({ ...f, managerName: e.target.value }))} /></div>
-            <div className="sm:col-span-2"><Label>Address</Label><Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} /></div>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((f) => ({ ...f, isDefault: e.target.checked }))} /> Default branch</label>
-          </div>
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving}><Save size={16} className="mr-1.5" />Save</Button>
-          </div>
-        </form>
-      </Modal>
 
       <Modal open={transferOpen} onClose={() => setTransferOpen(false)} title="Transfer IMEI Stock">
         <form onSubmit={submitTransfer} className="space-y-4">

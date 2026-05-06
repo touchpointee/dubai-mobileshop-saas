@@ -11,18 +11,19 @@ import { COUNTER_KEYS } from "@/lib/constants";
 import type { Channel } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const jobId = request.nextUrl.searchParams.get("serviceJobId");
   await connectDB();
   const query: Record<string, unknown> = { shopId };
+  if (session!.user.branchId) query.branchId = session!.user.branchId;
   if (jobId && mongoose.Types.ObjectId.isValid(jobId)) query.serviceJobId = jobId;
   const list = await ServiceInvoice.find(query).sort({ createdAt: -1 }).lean();
   return Response.json(list);
 }
 
 export async function POST(request: NextRequest) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const body = await request.json();
   const { serviceJobId, labourAmount, items } = body;
@@ -30,8 +31,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Valid service job is required" }, { status: 400 });
   }
   await connectDB();
-  const job = await ServiceJob.findOne({ _id: serviceJobId, shopId });
+  const jobMatch: Record<string, unknown> = { _id: serviceJobId, shopId };
+  if (session!.user.branchId) jobMatch.branchId = session!.user.branchId;
+  const job = await ServiceJob.findOne(jobMatch);
   if (!job) return Response.json({ error: "Service job not found" }, { status: 404 });
+  const branchId = job.branchId;
 
   const labour = Number(labourAmount) || 0;
   const lineItems: { productId: mongoose.Types.ObjectId; productName: string; quantity: number; unitPrice: number; channel: Channel }[] = [];
@@ -45,7 +49,11 @@ export async function POST(request: NextRequest) {
       if (qty <= 0) continue;
       const product = await Product.findOne({ _id: productId, shopId, channel: "VAT" });
       if (!product) continue;
-      const available = product.quantity ?? 0;
+      let available = product.quantity ?? 0;
+      if (product.trackByBatch && branchId) {
+        const batches = await ProductBatch.find({ productId, shopId, branchId, channel: "VAT", quantity: { $gt: 0 } }).select("quantity").lean();
+        available = batches.reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
+      }
       if (available < qty) {
         return Response.json(
           { error: `Insufficient stock for "${product.name}" (${channel}): need ${qty}, have ${available}` },
@@ -71,6 +79,7 @@ export async function POST(request: NextRequest) {
 
   const invoice = await ServiceInvoice.create({
     shopId,
+    branchId,
     serviceJobId: new mongoose.Types.ObjectId(serviceJobId),
     invoiceNumber,
     labourAmount: labour,
@@ -89,6 +98,7 @@ export async function POST(request: NextRequest) {
       const batches = await ProductBatch.find({
         productId: item.productId,
         shopId,
+        ...(branchId ? { branchId } : {}),
         channel: item.channel,
         quantity: { $gt: 0 },
       }).sort({ createdAt: 1 });

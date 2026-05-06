@@ -39,7 +39,7 @@ export async function requireShopSession() {
     }
   }
 
-  return { session, shopId, error: null };
+  return { session, shopId, branchId: session!.user.branchId ?? null, error: null };
 }
 
 export async function requireSuperAdmin() {

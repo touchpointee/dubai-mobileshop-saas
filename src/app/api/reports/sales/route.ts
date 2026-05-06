@@ -3,10 +3,10 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Sale } from "@/models/Sale";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter } from "@/lib/branches";
 
 export async function GET(request: NextRequest) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
   const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
 
   const match: Record<string, unknown> = { shopId, status: "COMPLETED", channel: "VAT" };
-  if (branchParam) match.branchId = await resolveBranchId(shopId!, branchParam);
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
+  if (branchId) match.branchId = branchId;
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.$gte = new Date(from);

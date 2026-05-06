@@ -10,7 +10,7 @@ import { Dealer } from "@/models/Dealer";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter, resolveAccessibleBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const channel: "VAT" = "VAT";
   await connectDB();
   const branchParam = request.nextUrl.searchParams.get("branchId");
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
   const match: Record<string, unknown> = { shopId, channel };
   if (branchId) match.branchId = branchId;
   const list = await Purchase.find(match)
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "At least one item is required" }, { status: 400 });
   }
   await connectDB();
-  const branchId = await resolveBranchId(shopId!, bodyBranchId);
+  const branchId = await resolveAccessibleBranchId(shopId!, bodyBranchId, session!.user.branchId);
 
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
   const vatRate = typeof shop?.vatRate === "number" ? shop.vatRate : 5;

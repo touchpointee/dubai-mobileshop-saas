@@ -9,7 +9,7 @@ import { ProductBatch } from "@/models/ProductBatch";
 import { Shop } from "@/models/Shop";
 import { getNextSequence, setCounterIfHigher, formatInvoiceNumber } from "@/lib/counter";
 import { COUNTER_KEYS } from "@/lib/constants";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter, resolveAccessibleBranchId } from "@/lib/branches";
 
 function getChannelFromRole(role: string): "VAT" | null {
   if (role === "VAT_STAFF" || role === "VAT_SHOP_STAFF") return "VAT";
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const channel: "VAT" = "VAT";
   const branchParam = request.nextUrl.searchParams.get("branchId");
   await connectDB();
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
   const match: Record<string, unknown> = { shopId, channel };
   if (branchId) match.branchId = branchId;
   const list = await Sale.find(match)
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   }
 
   await connectDB();
-  const branchId = await resolveBranchId(shopId!, bodyBranchId);
+  const branchId = await resolveAccessibleBranchId(shopId!, bodyBranchId, session!.user.branchId);
   const shop = await Shop.findById(shopId).select("vatRate").lean() as { vatRate?: number } | null;
   const vatRate = shop?.vatRate ?? 5;
 
@@ -124,7 +124,19 @@ export async function POST(request: NextRequest) {
 
   for (let i = 0; i < saleItems.length; i++) {
     const saleItem = saleItems[i];
-    const product = await Product.findOne({ _id: saleItem.productId, shopId }).select("minSellPrice name costPrice isMarginScheme").lean() as { minSellPrice?: number; name?: string; costPrice?: number; isMarginScheme?: boolean } | null;
+    const product = await Product.findOne({ _id: saleItem.productId, shopId }).select("minSellPrice name costPrice isMarginScheme requiresImei trackByBatch").lean() as { minSellPrice?: number; name?: string; costPrice?: number; isMarginScheme?: boolean; requiresImei?: boolean; trackByBatch?: boolean } | null;
+    if (saleItem.imeiId) {
+      const imeiInBranch = await ProductImei.exists({ _id: saleItem.imeiId, shopId, branchId, status: "IN_STOCK" });
+      if (!imeiInBranch) {
+        return Response.json({ error: `IMEI for ${product?.name ?? saleItem.productName} is not in stock at this branch` }, { status: 400 });
+      }
+    } else if (product?.trackByBatch && !product.requiresImei) {
+      const batches = await ProductBatch.find({ productId: saleItem.productId, shopId, branchId, quantity: { $gt: 0 } }).select("quantity").lean();
+      const available = batches.reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
+      if (available < saleItem.quantity) {
+        return Response.json({ error: `Only ${available} unit(s) of ${product.name ?? saleItem.productName} are available at this branch` }, { status: 400 });
+      }
+    }
     
     const minSell = product?.minSellPrice;
     if (minSell != null && minSell > 0 && subtotal > 0) {
@@ -279,7 +291,7 @@ export async function POST(request: NextRequest) {
     if (product?.trackByBatch) {
       let remaining = item.quantity;
       const batches = await ProductBatch.find(
-        { productId: item.productId, shopId, quantity: { $gt: 0 } }
+        { productId: item.productId, shopId, branchId, quantity: { $gt: 0 } }
       ).sort({ createdAt: 1 });
       for (const batch of batches) {
         if (remaining <= 0) break;

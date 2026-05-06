@@ -3,11 +3,12 @@ import connectDB from "@/lib/mongodb";
 import { requireShopSession } from "@/lib/api-auth";
 import { Product } from "@/models/Product";
 import { ProductImei } from "@/models/ProductImei";
+import { ProductBatch } from "@/models/ProductBatch";
 import type { Channel } from "@/lib/constants";
-import { resolveBranchId } from "@/lib/branches";
+import { getAccessibleBranchFilter } from "@/lib/branches";
 
 export async function GET(request: NextRequest) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   }
   const trimmed = code.trim();
   await connectDB();
-  const branchId = branchParam ? await resolveBranchId(shopId!, branchParam) : null;
+  const branchId = await getAccessibleBranchFilter(shopId!, session!.user.branchId, branchParam);
 
   // 1. Try IMEI lookup
   const imeiDocRaw = await ProductImei.findOne({
@@ -63,12 +64,17 @@ export async function GET(request: NextRequest) {
   }
   const productByBarcode = await Product.findOne(barcodeQuery).lean();
   if (productByBarcode) {
-    const p = productByBarcode as unknown as { _id: unknown; name: string; sellPrice: number; quantity: number; brand?: string; requiresImei?: boolean; imeiCount?: number; minSellPrice?: number };
+    const p = productByBarcode as unknown as { _id: unknown; name: string; sellPrice: number; quantity: number; brand?: string; requiresImei?: boolean; trackByBatch?: boolean; imeiCount?: number; minSellPrice?: number };
+    let quantity = p.quantity ?? 0;
+    if (branchId && p.trackByBatch && !p.requiresImei) {
+      const batches = await ProductBatch.find({ productId: p._id, shopId, branchId, quantity: { $gt: 0 } }).select("quantity").lean();
+      quantity = batches.reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
+    }
     const product = {
       _id: p._id,
       name: p.name,
       sellPrice: p.sellPrice,
-      quantity: p.quantity ?? 0,
+      quantity,
       brand: p.brand,
       requiresImei: p.requiresImei,
       imeiCount: p.imeiCount,

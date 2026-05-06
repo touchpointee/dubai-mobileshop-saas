@@ -13,6 +13,7 @@ declare module "next-auth" {
     email?: string | null;
     role: Role;
     shopId: string | null;
+    branchId: string | null;
   }
 
   interface Session {
@@ -20,6 +21,7 @@ declare module "next-auth" {
       id: string;
       role: Role;
       shopId: string | null;
+      branchId: string | null;
     };
   }
 }
@@ -29,6 +31,7 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     shopId: string | null;
+    branchId: string | null;
   }
 }
 
@@ -73,6 +76,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           role: user.role as Role,
           shopId: user.shopId?.toString() ?? null,
+          branchId: user.branchId?.toString() ?? null,
         };
       },
     }),
@@ -83,6 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.shopId = user.shopId ?? null;
+        token.branchId = user.branchId ?? null;
       }
       return token;
     },
@@ -91,6 +96,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.shopId = token.shopId;
+        session.user.branchId = token.branchId ?? null;
       }
       return session;
     },

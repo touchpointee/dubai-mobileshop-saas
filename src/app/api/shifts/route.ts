@@ -5,7 +5,7 @@ import { requireShopSession } from "@/lib/api-auth";
 import { Shift } from "@/models/Shift";
 import { Sale } from "@/models/Sale";
 import { ReturnModel } from "@/models/Return";
-import { resolveBranchId } from "@/lib/branches";
+import { resolveAccessibleBranchId } from "@/lib/branches";
 
 async function calculateShiftTotals(shopId: string, branchId: mongoose.Types.ObjectId, openedAt: Date, closedAt = new Date()) {
   const shopObjectId = new mongoose.Types.ObjectId(String(shopId));
@@ -45,11 +45,11 @@ async function calculateShiftTotals(shopId: string, branchId: mongoose.Types.Obj
 }
 
 export async function GET(request: NextRequest) {
-  const { shopId, error } = await requireShopSession();
+  const { session, shopId, error } = await requireShopSession();
   if (error) return error;
   await connectDB();
   const branchParam = request.nextUrl.searchParams.get("branchId");
-  const branchId = await resolveBranchId(shopId!, branchParam);
+  const branchId = await resolveAccessibleBranchId(shopId!, branchParam, session!.user.branchId);
   const active = await Shift.findOne({ shopId, branchId, status: "OPEN" })
     .populate("openedBy", "name")
     .lean();
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, branchId: bodyBranchId } = body;
   await connectDB();
-  const branchId = await resolveBranchId(shopId!, bodyBranchId);
+  const branchId = await resolveAccessibleBranchId(shopId!, bodyBranchId, session!.user.branchId);
 
   if (action === "open") {
     const existing = await Shift.findOne({ shopId, branchId, status: "OPEN" });

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { slugify } from "@/lib/utils";
+import { SuperAdminBranchesSection } from "@/components/shared/SuperAdminBranchesSection";
 
 type Shop = {
   _id: string;
@@ -252,6 +253,8 @@ export default function ShopsPage() {
       <div className="px-6 pb-6">
         <DataTable columns={columns} data={shops ?? []} emptyMessage={t("emptyShops")} />
       </div>
+
+      <SuperAdminBranchesSection shops={shops ?? []} />
 
       <Modal
         open={modalOpen}
